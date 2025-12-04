@@ -15,6 +15,7 @@ import com.gamestore.app.data.local.GameDatabase
 import com.gamestore.app.data.model.Download
 import com.gamestore.app.data.model.DownloadStatus
 import com.gamestore.app.data.repository.DownloadRepository
+import com.gamestore.app.util.DownloadDebugHelper
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
 import kotlin.coroutines.coroutineContext
@@ -201,15 +202,25 @@ class DownloadService : Service() {
             val file = File(download.filePath)
             file.parentFile?.mkdirs()
 
+            // Debug log
+            DownloadDebugHelper.logDownloadStart(download.url, download.customHeaders != null)
+
             val url = URL(download.url)
             connection = url.openConnection() as HttpURLConnection
+            connection.instanceFollowRedirects = true
+            connection.connectTimeout = 15000
+            connection.readTimeout = 15000
             
             // Adiciona headers customizados se existirem (necessário para GoFile)
             if (download.customHeaders != null) {
                 val headers = parseCustomHeaders(download.customHeaders)
+                DownloadDebugHelper.logCustomHeaders(headers)
                 headers.forEach { (key, value) ->
                     connection.setRequestProperty(key, value)
                 }
+            } else {
+                // Headers padrão se não houver customizados
+                connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36")
             }
             
             val existingBytes = if (file.exists()) file.length() else 0L
@@ -220,16 +231,22 @@ class DownloadService : Service() {
             connection.connect()
 
             val responseCode = connection.responseCode
+            val contentType = connection.contentType
+            
+            // Debug log
+            DownloadDebugHelper.logResponseInfo(responseCode, contentType, connection.contentLengthLong)
+            
+            // Verifica se está baixando HTML ao invés do arquivo
+            if (contentType?.contains("text/html", ignoreCase = true) == true) {
+                throw Exception("Server returned HTML instead of file. Response code: $responseCode")
+            }
+            
             if (responseCode !in 200..299) {
                 throw Exception("Server returned HTTP $responseCode")
             }
 
-            val contentLength = connection.contentLength
-            val totalBytes = if (contentLength > 0) {
-                contentLength + existingBytes
-            } else {
-                download.totalBytes
-            }
+            // Melhora a extração do tamanho do arquivo
+            val totalBytes = extractTotalFileSize(connection, existingBytes)
 
             if (download.totalBytes == 0L || download.totalBytes != totalBytes) {
                 downloadRepository.updateDownload(download.copy(
@@ -310,6 +327,7 @@ class DownloadService : Service() {
 
         } catch (e: Exception) {
             if (e is CancellationException) throw e
+            DownloadDebugHelper.logError("Download failed for ${download.gameName}", e)
             e.printStackTrace()
             throw e
         } finally {
@@ -464,6 +482,39 @@ class DownloadService : Service() {
         } catch (e: Exception) {
             e.printStackTrace()
             emptyMap()
+        }
+    }
+
+    private fun extractTotalFileSize(connection: HttpURLConnection, existingBytes: Long): Long {
+        return try {
+            // Se for resume (existingBytes > 0), verifica Content-Range primeiro
+            if (existingBytes > 0) {
+                val contentRange = connection.getHeaderField("Content-Range")
+                if (contentRange != null) {
+                    // Content-Range: bytes 1000-2000/3000
+                    val parts = contentRange.split("/")
+                    if (parts.size == 2) {
+                        val total = parts[1].toLongOrNull()
+                        if (total != null && total > 0) {
+                            return total
+                        }
+                    }
+                }
+            }
+            
+            // Tenta obter do Content-Length
+            val contentLengthHeader = connection.getHeaderField("Content-Length")
+            val contentLength = contentLengthHeader?.toLongOrNull() ?: connection.contentLengthLong
+            
+            if (contentLength > 0) {
+                return contentLength + existingBytes
+            }
+            
+            // Se não conseguir, retorna 0 (download com progresso indeterminado)
+            return 0L
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return 0L
         }
     }
 

@@ -1,5 +1,6 @@
 package com.gamestore.app.util
 
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -199,23 +200,31 @@ object GoFileExtractor {
      */
     suspend fun extractDirectDownloadLink(url: String, password: String? = null): GoFileDownloadInfo? = withContext(Dispatchers.IO) {
         try {
+            Log.d("GoFileExtractor", "Extracting download link from: $url")
+            
             // Extrai content ID
             val contentId = extractContentId(url)
             if (contentId == null) {
+                Log.e("GoFileExtractor", "Failed to extract content ID from URL")
                 return@withContext null
             }
+            Log.d("GoFileExtractor", "Content ID: $contentId")
             
             // Obtém token de acesso
             val token = getAccessToken()
             if (token == null) {
+                Log.e("GoFileExtractor", "Failed to get access token")
                 return@withContext null
             }
+            Log.d("GoFileExtractor", "Got token: ${token.take(10)}...")
             
             // Faz requisição para API
             val jsonResponse = getContentInfo(contentId, token, password)
             if (jsonResponse == null || jsonResponse.optString("status") != "ok") {
+                Log.e("GoFileExtractor", "Failed to get content info or status not ok")
                 return@withContext null
             }
+            Log.d("GoFileExtractor", "API Response status: ok")
             
             val data = jsonResponse.optJSONObject("data")
             if (data == null) {
@@ -231,29 +240,36 @@ object GoFileExtractor {
             }
             
             val contentType = data.optString("type")
+            Log.d("GoFileExtractor", "Content type: $contentType")
             
             // Cria os headers necessários para o download (mantém a sessão)
+            // Inclui o Referer que o GoFile pode verificar
             val downloadHeaders = mapOf(
                 "User-Agent" to USER_AGENT,
                 "Accept-Encoding" to "gzip",
                 "Connection" to "keep-alive",
                 "Accept" to "*/*",
                 "Authorization" to "Bearer $token",
-                "Cookie" to "accountToken=$token"
+                "Cookie" to "accountToken=$token",
+                "Referer" to "https://gofile.io/",
+                "Origin" to "https://gofile.io"
             )
             
             // Se for um arquivo único (não é folder)
             if (contentType != "folder") {
                 val directLink = data.optString("link")
+                Log.d("GoFileExtractor", "Single file - Direct link: $directLink")
                 if (directLink.isNotEmpty()) {
                     return@withContext GoFileDownloadInfo(directLink, downloadHeaders)
                 }
+                Log.e("GoFileExtractor", "Direct link is empty for single file")
                 return@withContext null
             }
             
             // Se for uma pasta, pega o primeiro arquivo
             if (contentType == "folder") {
                 val children = data.optJSONObject("children")
+                Log.d("GoFileExtractor", "Folder - Children count: ${children?.length() ?: 0}")
                 if (children != null && children.length() > 0) {
                     // Itera pelos filhos para encontrar o primeiro arquivo
                     val keys = children.keys()
@@ -262,9 +278,12 @@ object GoFileExtractor {
                         val child = children.optJSONObject(key)
                         if (child != null) {
                             val childType = child.optString("type")
+                            val childName = child.optString("name")
+                            Log.d("GoFileExtractor", "Child: $childName, type: $childType")
                             // Se for arquivo (não é folder), retorna o link com headers
                             if (childType == "file" || childType != "folder") {
                                 val directLink = child.optString("link")
+                                Log.d("GoFileExtractor", "Found file - Direct link: $directLink")
                                 if (directLink.isNotEmpty()) {
                                     return@withContext GoFileDownloadInfo(directLink, downloadHeaders)
                                 }
@@ -272,6 +291,7 @@ object GoFileExtractor {
                         }
                     }
                 }
+                Log.e("GoFileExtractor", "No valid file found in folder")
             }
             
             return@withContext null
