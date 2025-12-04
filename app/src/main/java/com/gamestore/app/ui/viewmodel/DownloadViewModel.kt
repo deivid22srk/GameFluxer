@@ -12,6 +12,7 @@ import com.gamestore.app.data.repository.DownloadRepository
 import com.gamestore.app.service.DownloadService
 import com.gamestore.app.util.MediaFireExtractor
 import com.gamestore.app.util.GoFileExtractor
+import com.gamestore.app.util.GoogleDriveExtractor
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.io.File
@@ -60,7 +61,7 @@ class DownloadViewModel(application: Application) : AndroidViewModel(application
                 val fileName = sanitizeFileName(game.name) + "_" + game.version + ".apk"
                 val filePath = File(folder, fileName).absolutePath
 
-                // Extrai o link direto se for MediaFire ou GoFile
+                // Extrai o link direto se for MediaFire, GoFile ou Google Drive
                 var downloadUrl = game.downloadUrl
                 var customHeaders: String? = null
                 
@@ -75,6 +76,9 @@ class DownloadViewModel(application: Application) : AndroidViewModel(application
                             // Serializa os headers para String (formato: key1:value1|key2:value2)
                             customHeaders = goFileInfo.headers.entries.joinToString("|") { "${it.key}:${it.value}" }
                         }
+                    }
+                    GoogleDriveExtractor.isGoogleDriveUrl(game.downloadUrl) -> {
+                        downloadUrl = GoogleDriveExtractor.extractDirectDownloadLinkWithRetry(game.downloadUrl)
                     }
                 }
 
