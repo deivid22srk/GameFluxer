@@ -16,6 +16,9 @@ interface DownloadDao {
     @Query("SELECT * FROM downloads WHERE gameId = :gameId")
     suspend fun getDownloadByGameId(gameId: String): Download?
 
+    @Query("SELECT * FROM downloads WHERE gameId = :gameId LIMIT 1")
+    fun observeDownloadByGameId(gameId: String): Flow<Download?>
+
     @Query("SELECT * FROM downloads WHERE status IN (:statuses)")
     fun getDownloadsByStatus(statuses: List<DownloadStatus>): Flow<List<Download>>
 

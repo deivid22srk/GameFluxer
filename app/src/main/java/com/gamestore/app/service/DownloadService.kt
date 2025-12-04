@@ -223,9 +223,20 @@ class DownloadService : Service() {
                 download.totalBytes
             }
 
-            if (download.totalBytes == 0L) {
-                downloadRepository.updateDownload(download.copy(totalBytes = totalBytes))
+            if (download.totalBytes == 0L || download.totalBytes != totalBytes) {
+                downloadRepository.updateDownload(download.copy(
+                    totalBytes = totalBytes,
+                    downloadedBytes = existingBytes
+                ))
             }
+            
+            updateNotification(
+                download.id,
+                download.gameName,
+                existingBytes,
+                totalBytes,
+                downloadSpeed = 0
+            )
 
             input = connection.inputStream
             output = FileOutputStream(file, existingBytes > 0)
@@ -236,6 +247,7 @@ class DownloadService : Service() {
             var lastUpdateTime = System.currentTimeMillis()
             var lastDownloadedBytes = downloadedBytes
             var downloadSpeed = 0L
+            var isFirstUpdate = true
 
             while (coroutineContext.isActive && !pausedDownloads.contains(download.id)) {
                 bytesRead = input.read(buffer)
@@ -245,10 +257,12 @@ class DownloadService : Service() {
                 downloadedBytes += bytesRead
 
                 val currentTime = System.currentTimeMillis()
-                if (currentTime - lastUpdateTime >= 500) {
-                    val timeDiff = currentTime - lastUpdateTime
+                val shouldUpdate = (currentTime - lastUpdateTime >= 500) || isFirstUpdate
+                
+                if (shouldUpdate) {
+                    val timeDiff = if (isFirstUpdate) 1 else (currentTime - lastUpdateTime)
                     val bytesDiff = downloadedBytes - lastDownloadedBytes
-                    downloadSpeed = (bytesDiff * 1000 / timeDiff)
+                    downloadSpeed = if (timeDiff > 0) (bytesDiff * 1000 / timeDiff) else 0
                     
                     downloadRepository.updateProgress(download.id, downloadedBytes)
                     updateNotification(
@@ -261,6 +275,7 @@ class DownloadService : Service() {
                     
                     lastUpdateTime = currentTime
                     lastDownloadedBytes = downloadedBytes
+                    isFirstUpdate = false
                 }
             }
 

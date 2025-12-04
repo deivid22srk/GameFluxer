@@ -33,11 +33,8 @@ class DownloadViewModel(application: Application) : AndroidViewModel(application
     val downloadFolder: StateFlow<String?> = preferencesManager.downloadFolder
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    fun getDownloadForGame(gameId: String): Flow<Download?> = flow {
-        emit(downloadRepository.getDownloadByGameId(gameId))
-    }.combine(allDownloads) { _, downloads ->
-        downloads.find { it.gameId == gameId }
-    }
+    fun getDownloadForGame(gameId: String): Flow<Download?> = 
+        downloadRepository.observeDownloadByGameId(gameId)
 
     fun startDownload(game: Game) {
         viewModelScope.launch {

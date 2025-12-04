@@ -17,6 +17,9 @@ class DownloadRepository(private val downloadDao: DownloadDao) {
     suspend fun getDownloadByGameId(gameId: String): Download? = 
         downloadDao.getDownloadByGameId(gameId)
 
+    fun observeDownloadByGameId(gameId: String): Flow<Download?> = 
+        downloadDao.observeDownloadByGameId(gameId)
+
     suspend fun insertDownload(download: Download) = downloadDao.insert(download)
 
     suspend fun updateDownload(download: Download) = downloadDao.update(download)
