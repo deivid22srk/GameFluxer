@@ -2,19 +2,17 @@ package com.gamestore.app.ui.navigation
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -63,6 +61,7 @@ val navigationItems = listOf(
     )
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
@@ -74,8 +73,34 @@ fun AppNavigation() {
         Screen.Search.route,
         Screen.Settings.route
     )
+    
+    val showTopBar = currentDestination?.route in listOf(
+        Screen.Home.route,
+        Screen.Search.route,
+        Screen.Settings.route
+    )
 
     Scaffold(
+        topBar = {
+            if (showTopBar) {
+                TopAppBar(
+                    title = { 
+                        Text(
+                            text = when (currentDestination?.route) {
+                                Screen.Search.route -> "Pesquisar"
+                                Screen.Settings.route -> "Configurações"
+                                else -> "GameFluxer"
+                            },
+                            fontWeight = FontWeight.Bold
+                        )
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        titleContentColor = MaterialTheme.colorScheme.onPrimary
+                    )
+                )
+            }
+        },
         bottomBar = {
             if (showBottomBar) {
                 NavigationBar {
@@ -123,7 +148,6 @@ fun AppNavigation() {
 
             composable(Screen.Search.route) {
                 SearchScreen(
-                    onBackClick = { navController.popBackStack() },
                     onGameClick = { gameId ->
                         navController.navigate(Screen.GameDetail.createRoute(gameId))
                     }
@@ -131,9 +155,7 @@ fun AppNavigation() {
             }
 
             composable(Screen.Settings.route) {
-                SettingsScreen(
-                    onBackClick = { navController.popBackStack() }
-                )
+                SettingsScreen()
             }
 
             composable(
