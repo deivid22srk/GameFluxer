@@ -86,7 +86,7 @@ fun HorizontalGameCard(
                     fontWeight = FontWeight.Bold,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    minHeight = 40.dp
+                    modifier = Modifier.heightIn(min = 40.dp)
                 )
                 
                 Spacer(modifier = Modifier.height(4.dp))
