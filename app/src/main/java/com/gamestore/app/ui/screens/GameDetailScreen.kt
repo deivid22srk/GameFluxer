@@ -1,7 +1,12 @@
 package com.gamestore.app.ui.screens
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -11,10 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -22,6 +24,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.gamestore.app.data.model.DownloadStatus
@@ -39,9 +42,64 @@ fun GameDetailScreen(
     val game by viewModel.game.collectAsState()
     val context = LocalContext.current
     val download by downloadViewModel.getDownloadForGame(gameId).collectAsState(initial = null)
+    
+    var showPermissionDialog by remember { mutableStateOf(false) }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            game?.let { downloadViewModel.startDownload(it) }
+        }
+    }
 
     LaunchedEffect(gameId) {
         viewModel.loadGame(gameId)
+    }
+
+    val onDownloadClick: () -> Unit = {
+        game?.let { gameData ->
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                when {
+                    ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.POST_NOTIFICATIONS
+                    ) == PackageManager.PERMISSION_GRANTED -> {
+                        downloadViewModel.startDownload(gameData)
+                    }
+                    else -> {
+                        showPermissionDialog = true
+                    }
+                }
+            } else {
+                downloadViewModel.startDownload(gameData)
+            }
+        }
+    }
+
+    if (showPermissionDialog) {
+        AlertDialog(
+            onDismissRequest = { showPermissionDialog = false },
+            title = { Text("Permissão necessária") },
+            text = { Text("O app precisa de permissão para enviar notificações e mostrar o progresso dos downloads.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showPermissionDialog = false
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                    }
+                ) {
+                    Text("Permitir")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPermissionDialog = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
     }
 
     game?.let { gameData ->
@@ -292,7 +350,7 @@ fun GameDetailScreen(
                                 }
                                 DownloadStatus.CANCELLED -> {
                                     Button(
-                                        onClick = { downloadViewModel.startDownload(gameData) },
+                                        onClick = onDownloadClick,
                                         modifier = Modifier.fillMaxWidth(),
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = MaterialTheme.colorScheme.primary
@@ -306,7 +364,7 @@ fun GameDetailScreen(
                             }
                         } ?: run {
                             Button(
-                                onClick = { downloadViewModel.startDownload(gameData) },
+                                onClick = onDownloadClick,
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = MaterialTheme.colorScheme.primary

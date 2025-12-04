@@ -41,32 +41,41 @@ class DownloadViewModel(application: Application) : AndroidViewModel(application
 
     fun startDownload(game: Game) {
         viewModelScope.launch {
-            val existingDownload = downloadRepository.getDownloadByGameId(game.id)
-            
-            if (existingDownload != null) {
-                if (existingDownload.status == DownloadStatus.PAUSED ||
-                    existingDownload.status == DownloadStatus.FAILED) {
-                    DownloadService.resumeDownload(getApplication(), existingDownload.id)
+            try {
+                val existingDownload = downloadRepository.getDownloadByGameId(game.id)
+                
+                if (existingDownload != null) {
+                    if (existingDownload.status == DownloadStatus.PAUSED ||
+                        existingDownload.status == DownloadStatus.FAILED) {
+                        DownloadService.resumeDownload(getApplication(), existingDownload.id)
+                    }
+                    return@launch
                 }
-                return@launch
+
+                val folder = downloadFolder.value ?: getDefaultDownloadFolder()
+                val folderFile = File(folder)
+                if (!folderFile.exists()) {
+                    folderFile.mkdirs()
+                }
+                
+                val fileName = sanitizeFileName(game.name) + "_" + game.version + ".apk"
+                val filePath = File(folder, fileName).absolutePath
+
+                val download = Download(
+                    id = UUID.randomUUID().toString(),
+                    gameId = game.id,
+                    gameName = game.name,
+                    gameIconUrl = game.iconUrl,
+                    url = game.downloadUrl,
+                    filePath = filePath,
+                    status = DownloadStatus.QUEUED
+                )
+
+                downloadRepository.insertDownload(download)
+                DownloadService.startDownload(getApplication(), download.id)
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
-
-            val folder = downloadFolder.value ?: getDefaultDownloadFolder()
-            val fileName = sanitizeFileName(game.name) + "_" + game.version + ".apk"
-            val filePath = File(folder, fileName).absolutePath
-
-            val download = Download(
-                id = UUID.randomUUID().toString(),
-                gameId = game.id,
-                gameName = game.name,
-                gameIconUrl = game.iconUrl,
-                url = game.downloadUrl,
-                filePath = filePath,
-                status = DownloadStatus.QUEUED
-            )
-
-            downloadRepository.insertDownload(download)
-            DownloadService.startDownload(getApplication(), download.id)
         }
     }
 
@@ -106,7 +115,12 @@ class DownloadViewModel(application: Application) : AndroidViewModel(application
 
     private fun getDefaultDownloadFolder(): String {
         val context = getApplication<Application>()
-        return context.getExternalFilesDir(null)?.absolutePath + "/downloads"
+        val externalDir = context.getExternalFilesDir(null)
+        return if (externalDir != null) {
+            externalDir.absolutePath + "/downloads"
+        } else {
+            context.filesDir.absolutePath + "/downloads"
+        }
     }
 
     private fun sanitizeFileName(name: String): String {

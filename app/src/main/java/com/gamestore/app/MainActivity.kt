@@ -10,11 +10,15 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import com.gamestore.app.ui.navigation.AppNavigation
 import com.gamestore.app.ui.theme.GameStoreTheme
+import com.gamestore.app.util.PermissionHelper
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        
+        PermissionHelper.checkAndRequestPermissions(this)
+        
         setContent {
             GameStoreTheme {
                 Surface(

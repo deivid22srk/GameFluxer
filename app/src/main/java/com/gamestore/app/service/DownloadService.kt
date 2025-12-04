@@ -93,7 +93,11 @@ class DownloadService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-        startForeground(FOREGROUND_NOTIFICATION_ID, createForegroundNotification())
+        try {
+            startForeground(FOREGROUND_NOTIFICATION_ID, createForegroundNotification())
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -118,7 +122,10 @@ class DownloadService : Service() {
         
         val job = serviceScope.launch {
             try {
-                val download = downloadRepository.getDownloadById(downloadId) ?: return@launch
+                val download = downloadRepository.getDownloadById(downloadId)
+                if (download == null) {
+                    return@launch
+                }
                 
                 if (download.status == DownloadStatus.COMPLETED) return@launch
                 
@@ -129,8 +136,12 @@ class DownloadService : Service() {
                 
             } catch (e: Exception) {
                 e.printStackTrace()
-                downloadRepository.updateStatus(downloadId, DownloadStatus.FAILED)
-                updateNotification(downloadId, "Download falhou", 0, 0, failed = true)
+                try {
+                    downloadRepository.updateStatus(downloadId, DownloadStatus.FAILED)
+                    updateNotification(downloadId, "Download falhou", 0, 0, failed = true)
+                } catch (ex: Exception) {
+                    ex.printStackTrace()
+                }
             } finally {
                 activeDownloads.remove(downloadId)
                 checkIfServiceShouldStop()
@@ -316,77 +327,81 @@ class DownloadService : Service() {
         failed: Boolean = false,
         paused: Boolean = false
     ) {
-        val notificationId = downloadId.hashCode()
-        
-        val intent = Intent(this, MainActivity::class.java)
-        val pendingIntent = PendingIntent.getActivity(
-            this,
-            notificationId,
-            intent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
+        try {
+            val notificationId = downloadId.hashCode()
+            
+            val intent = Intent(this, MainActivity::class.java)
+            val pendingIntent = PendingIntent.getActivity(
+                this,
+                notificationId,
+                intent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
 
-        val builder = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.stat_sys_download)
-            .setContentTitle(gameName)
-            .setContentIntent(pendingIntent)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
+            val builder = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.stat_sys_download)
+                .setContentTitle(gameName)
+                .setContentIntent(pendingIntent)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
 
-        when {
-            completed -> {
-                builder.setContentText("Download concluído")
-                    .setProgress(0, 0, false)
-                    .setOngoing(false)
+            when {
+                completed -> {
+                    builder.setContentText("Download concluído")
+                        .setProgress(0, 0, false)
+                        .setOngoing(false)
+                }
+                failed -> {
+                    builder.setContentText("Download falhou")
+                        .setProgress(0, 0, false)
+                        .setOngoing(false)
+                        .setSmallIcon(android.R.drawable.stat_notify_error)
+                }
+                paused -> {
+                    val progress = if (totalBytes > 0) {
+                        ((downloadedBytes.toFloat() / totalBytes.toFloat()) * 100).roundToInt()
+                    } else 0
+                    
+                    builder.setContentText("Pausado - ${formatBytes(downloadedBytes)} / ${formatBytes(totalBytes)} ($progress%)")
+                        .setProgress(100, progress, false)
+                        .setOngoing(false)
+                        .addAction(
+                            android.R.drawable.ic_media_play,
+                            "Retomar",
+                            createActionPendingIntent(downloadId, ACTION_RESUME_DOWNLOAD)
+                        )
+                        .addAction(
+                            android.R.drawable.ic_delete,
+                            "Cancelar",
+                            createActionPendingIntent(downloadId, ACTION_CANCEL_DOWNLOAD)
+                        )
+                }
+                else -> {
+                    val progress = if (totalBytes > 0) {
+                        ((downloadedBytes.toFloat() / totalBytes.toFloat()) * 100).roundToInt()
+                    } else 0
+                    
+                    val speedText = if (downloadSpeed > 0) " - ${formatBytes(downloadSpeed)}/s" else ""
+                    
+                    builder.setContentText("${formatBytes(downloadedBytes)} / ${formatBytes(totalBytes)} ($progress%)$speedText")
+                        .setProgress(100, progress, totalBytes == 0L)
+                        .setOngoing(true)
+                        .addAction(
+                            android.R.drawable.ic_media_pause,
+                            "Pausar",
+                            createActionPendingIntent(downloadId, ACTION_PAUSE_DOWNLOAD)
+                        )
+                        .addAction(
+                            android.R.drawable.ic_delete,
+                            "Cancelar",
+                            createActionPendingIntent(downloadId, ACTION_CANCEL_DOWNLOAD)
+                        )
+                }
             }
-            failed -> {
-                builder.setContentText("Download falhou")
-                    .setProgress(0, 0, false)
-                    .setOngoing(false)
-                    .setSmallIcon(android.R.drawable.stat_notify_error)
-            }
-            paused -> {
-                val progress = if (totalBytes > 0) {
-                    ((downloadedBytes.toFloat() / totalBytes.toFloat()) * 100).roundToInt()
-                } else 0
-                
-                builder.setContentText("Pausado - ${formatBytes(downloadedBytes)} / ${formatBytes(totalBytes)} ($progress%)")
-                    .setProgress(100, progress, false)
-                    .setOngoing(false)
-                    .addAction(
-                        android.R.drawable.ic_media_play,
-                        "Retomar",
-                        createActionPendingIntent(downloadId, ACTION_RESUME_DOWNLOAD)
-                    )
-                    .addAction(
-                        android.R.drawable.ic_delete,
-                        "Cancelar",
-                        createActionPendingIntent(downloadId, ACTION_CANCEL_DOWNLOAD)
-                    )
-            }
-            else -> {
-                val progress = if (totalBytes > 0) {
-                    ((downloadedBytes.toFloat() / totalBytes.toFloat()) * 100).roundToInt()
-                } else 0
-                
-                val speedText = if (downloadSpeed > 0) " - ${formatBytes(downloadSpeed)}/s" else ""
-                
-                builder.setContentText("${formatBytes(downloadedBytes)} / ${formatBytes(totalBytes)} ($progress%)$speedText")
-                    .setProgress(100, progress, totalBytes == 0L)
-                    .setOngoing(true)
-                    .addAction(
-                        android.R.drawable.ic_media_pause,
-                        "Pausar",
-                        createActionPendingIntent(downloadId, ACTION_PAUSE_DOWNLOAD)
-                    )
-                    .addAction(
-                        android.R.drawable.ic_delete,
-                        "Cancelar",
-                        createActionPendingIntent(downloadId, ACTION_CANCEL_DOWNLOAD)
-                    )
-            }
+
+            notificationManager.notify(notificationId, builder.build())
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
-
-        notificationManager.notify(notificationId, builder.build())
     }
 
     private fun createActionPendingIntent(downloadId: String, action: String): PendingIntent {
