@@ -17,6 +17,7 @@ import com.gamestore.app.data.model.DownloadStatus
 import com.gamestore.app.data.repository.DownloadRepository
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
+import kotlin.coroutines.coroutineContext
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
@@ -225,7 +226,7 @@ class DownloadService : Service() {
             var lastDownloadedBytes = downloadedBytes
             var downloadSpeed = 0L
 
-            while (isActive && !pausedDownloads.contains(download.id)) {
+            while (coroutineContext.isActive && !pausedDownloads.contains(download.id)) {
                 bytesRead = input.read(buffer)
                 if (bytesRead == -1) break
 
