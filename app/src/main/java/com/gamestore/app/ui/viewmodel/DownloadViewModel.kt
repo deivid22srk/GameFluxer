@@ -10,6 +10,7 @@ import com.gamestore.app.data.model.Game
 import com.gamestore.app.data.preferences.PreferencesManager
 import com.gamestore.app.data.repository.DownloadRepository
 import com.gamestore.app.service.DownloadService
+import com.gamestore.app.util.MediaFireExtractor
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.io.File
@@ -58,12 +59,19 @@ class DownloadViewModel(application: Application) : AndroidViewModel(application
                 val fileName = sanitizeFileName(game.name) + "_" + game.version + ".apk"
                 val filePath = File(folder, fileName).absolutePath
 
+                // Extrai o link direto se for MediaFire
+                val downloadUrl = if (MediaFireExtractor.isMediaFireUrl(game.downloadUrl)) {
+                    MediaFireExtractor.extractDirectDownloadLinkWithRetry(game.downloadUrl)
+                } else {
+                    game.downloadUrl
+                }
+
                 val download = Download(
                     id = UUID.randomUUID().toString(),
                     gameId = game.id,
                     gameName = game.name,
                     gameIconUrl = game.iconUrl,
-                    url = game.downloadUrl,
+                    url = downloadUrl,
                     filePath = filePath,
                     status = DownloadStatus.QUEUED
                 )
