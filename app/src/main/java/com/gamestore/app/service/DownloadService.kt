@@ -204,6 +204,14 @@ class DownloadService : Service() {
             val url = URL(download.url)
             connection = url.openConnection() as HttpURLConnection
             
+            // Adiciona headers customizados se existirem (necessário para GoFile)
+            if (download.customHeaders != null) {
+                val headers = parseCustomHeaders(download.customHeaders)
+                headers.forEach { (key, value) ->
+                    connection.setRequestProperty(key, value)
+                }
+            }
+            
             val existingBytes = if (file.exists()) file.length() else 0L
             if (existingBytes > 0) {
                 connection.setRequestProperty("Range", "bytes=$existingBytes-")
@@ -438,6 +446,24 @@ class DownloadService : Service() {
             bytes < 1024 * 1024 -> String.format("%.2f KB", bytes / 1024.0)
             bytes < 1024 * 1024 * 1024 -> String.format("%.2f MB", bytes / (1024.0 * 1024.0))
             else -> String.format("%.2f GB", bytes / (1024.0 * 1024.0 * 1024.0))
+        }
+    }
+
+    private fun parseCustomHeaders(headersString: String): Map<String, String> {
+        return try {
+            headersString.split("|")
+                .mapNotNull { header ->
+                    val parts = header.split(":", limit = 2)
+                    if (parts.size == 2) {
+                        parts[0] to parts[1]
+                    } else {
+                        null
+                    }
+                }
+                .toMap()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyMap()
         }
     }
 

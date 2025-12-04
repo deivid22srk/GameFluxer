@@ -5,9 +5,13 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
-import java.io.OutputStream
 import java.net.HttpURLConnection
 import java.net.URL
+
+data class GoFileDownloadInfo(
+    val url: String,
+    val headers: Map<String, String>
+)
 
 object GoFileExtractor {
 
@@ -27,6 +31,10 @@ object GoFileExtractor {
      */
     private fun extractContentId(url: String): String? {
         return try {
+            if (!url.split("/").contains("d")) {
+                return null
+            }
+            
             val parts = url.split("/")
             val dIndex = parts.indexOf("d")
             if (dIndex != -1 && dIndex + 1 < parts.size) {
@@ -42,96 +50,170 @@ object GoFileExtractor {
     
     /**
      * Obtém ou cria um token de acesso para a API do GoFile
+     * Segue exatamente a implementação do Python
      */
-    private suspend fun getAccessToken(): String? = withContext(Dispatchers.IO) {
+    private suspend fun getAccessToken(maxRetries: Int = 5): String? = withContext(Dispatchers.IO) {
+        // Retorna token em cache se disponível
         if (cachedToken != null) {
             return@withContext cachedToken
         }
         
         var connection: HttpURLConnection? = null
         
-        try {
-            val url = URL("https://api.gofile.io/accounts")
-            connection = url.openConnection() as HttpURLConnection
-            connection.requestMethod = "POST"
-            connection.setRequestProperty("User-Agent", USER_AGENT)
-            connection.setRequestProperty("Accept", "*/*")
-            connection.connectTimeout = 15000
-            connection.readTimeout = 15000
-            connection.connect()
-            
-            val responseCode = connection.responseCode
-            if (responseCode !in 200..299) {
-                return@withContext null
+        repeat(maxRetries) { attempt ->
+            try {
+                val url = URL("https://api.gofile.io/accounts")
+                connection = url.openConnection() as HttpURLConnection
+                connection?.apply {
+                    requestMethod = "POST"
+                    setRequestProperty("User-Agent", USER_AGENT)
+                    setRequestProperty("Accept-Encoding", "gzip")
+                    setRequestProperty("Connection", "keep-alive")
+                    setRequestProperty("Accept", "*/*")
+                    connectTimeout = 15000
+                    readTimeout = 15000
+                    doOutput = false
+                }
+                
+                connection?.connect()
+                
+                val responseCode = connection?.responseCode ?: 0
+                if (responseCode !in 200..299) {
+                    if (attempt < maxRetries - 1) {
+                        connection?.disconnect()
+                        return@repeat
+                    }
+                    return@withContext null
+                }
+                
+                val content = BufferedReader(InputStreamReader(connection?.inputStream)).use { reader ->
+                    reader.readText()
+                }
+                
+                val jsonResponse = JSONObject(content)
+                if (jsonResponse.optString("status") == "ok") {
+                    val token = jsonResponse.optJSONObject("data")?.optString("token")
+                    if (token != null && token.isNotEmpty()) {
+                        cachedToken = token
+                        return@withContext token
+                    }
+                }
+                
+                if (attempt < maxRetries - 1) {
+                    connection?.disconnect()
+                    return@repeat
+                }
+                
+            } catch (e: Exception) {
+                e.printStackTrace()
+                if (attempt < maxRetries - 1) {
+                    connection?.disconnect()
+                    return@repeat
+                }
+            } finally {
+                if (attempt == maxRetries - 1) {
+                    connection?.disconnect()
+                }
             }
-            
-            val content = BufferedReader(InputStreamReader(connection.inputStream)).use { reader ->
-                reader.readText()
-            }
-            
-            val jsonResponse = JSONObject(content)
-            if (jsonResponse.optString("status") == "ok") {
-                val token = jsonResponse.optJSONObject("data")?.optString("token")
-                cachedToken = token
-                return@withContext token
-            }
-            
-            return@withContext null
-            
-        } catch (e: Exception) {
-            e.printStackTrace()
-            return@withContext null
-        } finally {
-            connection?.disconnect()
         }
+        
+        return@withContext null
     }
     
     /**
-     * Extrai o link de download direto do GoFile
-     * @param url URL da página do GoFile (ex: https://gofile.io/d/I7Y2WU)
-     * @param password Senha opcional se o conteúdo for protegido
-     * @return URL de download direto ou null se falhar
+     * Faz requisição GET para a API do GoFile com todos os headers e cookies corretos
      */
-    suspend fun extractDirectDownloadLink(url: String, password: String? = null): String? = withContext(Dispatchers.IO) {
+    private suspend fun getContentInfo(
+        contentId: String, 
+        token: String, 
+        password: String? = null,
+        maxRetries: Int = 5
+    ): JSONObject? = withContext(Dispatchers.IO) {
         var connection: HttpURLConnection? = null
         
+        repeat(maxRetries) { attempt ->
+            try {
+                // URL exatamente como no Python
+                var apiUrl = "https://api.gofile.io/contents/$contentId?wt=4fd6sg89d7s6&cache=true&sortField=createTime&sortDirection=1"
+                
+                if (password != null && password.isNotEmpty()) {
+                    apiUrl += "&password=$password"
+                }
+                
+                val url = URL(apiUrl)
+                connection = url.openConnection() as HttpURLConnection
+                connection?.apply {
+                    requestMethod = "GET"
+                    // Headers exatamente como no Python
+                    setRequestProperty("User-Agent", USER_AGENT)
+                    setRequestProperty("Accept-Encoding", "gzip")
+                    setRequestProperty("Connection", "keep-alive")
+                    setRequestProperty("Accept", "*/*")
+                    setRequestProperty("Authorization", "Bearer $token")
+                    // Cookie com accountToken
+                    setRequestProperty("Cookie", "accountToken=$token")
+                    connectTimeout = 15000
+                    readTimeout = 15000
+                }
+                
+                connection?.connect()
+                
+                val responseCode = connection?.responseCode ?: 0
+                if (responseCode !in 200..299) {
+                    if (attempt < maxRetries - 1) {
+                        connection?.disconnect()
+                        return@repeat
+                    }
+                    return@withContext null
+                }
+                
+                val content = BufferedReader(InputStreamReader(connection?.inputStream)).use { reader ->
+                    reader.readText()
+                }
+                
+                val jsonResponse = JSONObject(content)
+                return@withContext jsonResponse
+                
+            } catch (e: Exception) {
+                e.printStackTrace()
+                if (attempt < maxRetries - 1) {
+                    connection?.disconnect()
+                    return@repeat
+                }
+            } finally {
+                if (attempt == maxRetries - 1) {
+                    connection?.disconnect()
+                }
+            }
+        }
+        
+        return@withContext null
+    }
+    
+    /**
+     * Extrai o link de download direto do GoFile com headers necessários
+     * Segue a lógica exata do Python mantendo a sessão
+     * @param url URL da página do GoFile (ex: https://gofile.io/d/I7Y2WU)
+     * @param password Senha opcional se o conteúdo for protegido
+     * @return GoFileDownloadInfo com URL e headers ou null se falhar
+     */
+    suspend fun extractDirectDownloadLink(url: String, password: String? = null): GoFileDownloadInfo? = withContext(Dispatchers.IO) {
         try {
+            // Extrai content ID
             val contentId = extractContentId(url)
             if (contentId == null) {
                 return@withContext null
             }
             
+            // Obtém token de acesso
             val token = getAccessToken()
             if (token == null) {
                 return@withContext null
             }
             
-            var apiUrl = "https://api.gofile.io/contents/$contentId?wt=4fd6sg89d7s6&cache=true"
-            if (password != null) {
-                apiUrl += "&password=$password"
-            }
-            
-            val urlObj = URL(apiUrl)
-            connection = urlObj.openConnection() as HttpURLConnection
-            connection.requestMethod = "GET"
-            connection.setRequestProperty("User-Agent", USER_AGENT)
-            connection.setRequestProperty("Authorization", "Bearer $token")
-            connection.setRequestProperty("Accept", "*/*")
-            connection.connectTimeout = 15000
-            connection.readTimeout = 15000
-            connection.connect()
-            
-            val responseCode = connection.responseCode
-            if (responseCode !in 200..299) {
-                return@withContext null
-            }
-            
-            val content = BufferedReader(InputStreamReader(connection.inputStream)).use { reader ->
-                reader.readText()
-            }
-            
-            val jsonResponse = JSONObject(content)
-            if (jsonResponse.optString("status") != "ok") {
+            // Faz requisição para API
+            val jsonResponse = getContentInfo(contentId, token, password)
+            if (jsonResponse == null || jsonResponse.optString("status") != "ok") {
                 return@withContext null
             }
             
@@ -141,30 +223,52 @@ object GoFileExtractor {
             }
             
             // Verifica se precisa de senha
-            if (data.has("password") && data.has("passwordStatus") && 
-                data.optString("passwordStatus") != "passwordOk") {
-                return@withContext null
-            }
-            
-            // Se for um arquivo único, retorna o link direto
-            if (data.optString("type") == "file" || data.has("link")) {
-                val directLink = data.optString("link")
-                if (directLink.isNotEmpty()) {
-                    return@withContext directLink
+            if (data.has("password") && data.has("passwordStatus")) {
+                val passwordStatus = data.optString("passwordStatus")
+                if (passwordStatus != "passwordOk") {
+                    return@withContext null
                 }
             }
             
+            val contentType = data.optString("type")
+            
+            // Cria os headers necessários para o download (mantém a sessão)
+            val downloadHeaders = mapOf(
+                "User-Agent" to USER_AGENT,
+                "Accept-Encoding" to "gzip",
+                "Connection" to "keep-alive",
+                "Accept" to "*/*",
+                "Authorization" to "Bearer $token",
+                "Cookie" to "accountToken=$token"
+            )
+            
+            // Se for um arquivo único (não é folder)
+            if (contentType != "folder") {
+                val directLink = data.optString("link")
+                if (directLink.isNotEmpty()) {
+                    return@withContext GoFileDownloadInfo(directLink, downloadHeaders)
+                }
+                return@withContext null
+            }
+            
             // Se for uma pasta, pega o primeiro arquivo
-            if (data.optString("type") == "folder") {
+            if (contentType == "folder") {
                 val children = data.optJSONObject("children")
                 if (children != null && children.length() > 0) {
-                    // Pega o primeiro arquivo da pasta
-                    val firstKey = children.keys().next()
-                    val firstFile = children.optJSONObject(firstKey)
-                    if (firstFile != null) {
-                        val directLink = firstFile.optString("link")
-                        if (directLink.isNotEmpty()) {
-                            return@withContext directLink
+                    // Itera pelos filhos para encontrar o primeiro arquivo
+                    val keys = children.keys()
+                    while (keys.hasNext()) {
+                        val key = keys.next()
+                        val child = children.optJSONObject(key)
+                        if (child != null) {
+                            val childType = child.optString("type")
+                            // Se for arquivo (não é folder), retorna o link com headers
+                            if (childType == "file" || childType != "folder") {
+                                val directLink = child.optString("link")
+                                if (directLink.isNotEmpty()) {
+                                    return@withContext GoFileDownloadInfo(directLink, downloadHeaders)
+                                }
+                            }
                         }
                     }
                 }
@@ -175,8 +279,6 @@ object GoFileExtractor {
         } catch (e: Exception) {
             e.printStackTrace()
             return@withContext null
-        } finally {
-            connection?.disconnect()
         }
     }
     
@@ -185,27 +287,28 @@ object GoFileExtractor {
      * @param url URL da página do GoFile
      * @param password Senha opcional
      * @param maxRetries Número máximo de tentativas
-     * @return URL de download direto ou a URL original se falhar
+     * @return GoFileDownloadInfo ou null se falhar (retorna null para usar URL original sem headers)
      */
     suspend fun extractDirectDownloadLinkWithRetry(
         url: String, 
         password: String? = null,
         maxRetries: Int = 3
-    ): String {
+    ): GoFileDownloadInfo? {
         repeat(maxRetries) { attempt ->
             try {
-                val directLink = extractDirectDownloadLink(url, password)
-                if (directLink != null) {
-                    return directLink
+                val downloadInfo = extractDirectDownloadLink(url, password)
+                if (downloadInfo != null) {
+                    return downloadInfo
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
                 if (attempt == maxRetries - 1) {
-                    return url
+                    return null
                 }
             }
         }
         
-        return url
+        // Retorna null se falhar (deixa usar URL original sem headers especiais)
+        return null
     }
 }

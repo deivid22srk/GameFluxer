@@ -16,7 +16,8 @@ data class Download(
     val downloadedBytes: Long = 0L,
     val status: DownloadStatus = DownloadStatus.QUEUED,
     val createdAt: Long = System.currentTimeMillis(),
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+    val customHeaders: String? = null
 )
 
 enum class DownloadStatus {

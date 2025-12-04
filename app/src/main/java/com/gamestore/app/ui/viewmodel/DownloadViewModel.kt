@@ -61,15 +61,20 @@ class DownloadViewModel(application: Application) : AndroidViewModel(application
                 val filePath = File(folder, fileName).absolutePath
 
                 // Extrai o link direto se for MediaFire ou GoFile
-                val downloadUrl = when {
+                var downloadUrl = game.downloadUrl
+                var customHeaders: String? = null
+                
+                when {
                     MediaFireExtractor.isMediaFireUrl(game.downloadUrl) -> {
-                        MediaFireExtractor.extractDirectDownloadLinkWithRetry(game.downloadUrl)
+                        downloadUrl = MediaFireExtractor.extractDirectDownloadLinkWithRetry(game.downloadUrl)
                     }
                     GoFileExtractor.isGoFileUrl(game.downloadUrl) -> {
-                        GoFileExtractor.extractDirectDownloadLinkWithRetry(game.downloadUrl)
-                    }
-                    else -> {
-                        game.downloadUrl
+                        val goFileInfo = GoFileExtractor.extractDirectDownloadLinkWithRetry(game.downloadUrl)
+                        if (goFileInfo != null) {
+                            downloadUrl = goFileInfo.url
+                            // Serializa os headers para String (formato: key1:value1|key2:value2)
+                            customHeaders = goFileInfo.headers.entries.joinToString("|") { "${it.key}:${it.value}" }
+                        }
                     }
                 }
 
@@ -80,7 +85,8 @@ class DownloadViewModel(application: Application) : AndroidViewModel(application
                     gameIconUrl = game.iconUrl,
                     url = downloadUrl,
                     filePath = filePath,
-                    status = DownloadStatus.QUEUED
+                    status = DownloadStatus.QUEUED,
+                    customHeaders = customHeaders
                 )
 
                 downloadRepository.insertDownload(download)
