@@ -19,6 +19,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.gamestore.app.ui.screens.DownloadsScreen
 import com.gamestore.app.ui.screens.GameDetailScreen
 import com.gamestore.app.ui.screens.HomeScreen
 import com.gamestore.app.ui.screens.SearchScreen
@@ -28,6 +29,7 @@ sealed class Screen(val route: String) {
     object Home : Screen("home")
     object Search : Screen("search")
     object Settings : Screen("settings")
+    object Downloads : Screen("downloads")
     object GameDetail : Screen("game_detail/{gameId}") {
         fun createRoute(gameId: String) = "game_detail/$gameId"
     }
@@ -94,6 +96,17 @@ fun AppNavigation() {
                             fontWeight = FontWeight.Bold
                         )
                     },
+                    actions = {
+                        IconButton(
+                            onClick = { navController.navigate(Screen.Downloads.route) }
+                        ) {
+                            Icon(
+                                Icons.Default.Download,
+                                contentDescription = "Downloads",
+                                tint = MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
+                    },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.primary,
                         titleContentColor = MaterialTheme.colorScheme.onPrimary
@@ -156,6 +169,12 @@ fun AppNavigation() {
 
             composable(Screen.Settings.route) {
                 SettingsScreen()
+            }
+
+            composable(Screen.Downloads.route) {
+                DownloadsScreen(
+                    onBackClick = { navController.popBackStack() }
+                )
             }
 
             composable(

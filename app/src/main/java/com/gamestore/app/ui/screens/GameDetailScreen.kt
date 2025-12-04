@@ -24,16 +24,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import com.gamestore.app.data.model.DownloadStatus
+import com.gamestore.app.ui.viewmodel.DownloadViewModel
 import com.gamestore.app.ui.viewmodel.GameDetailViewModel
+import kotlin.math.roundToInt
 
 @Composable
 fun GameDetailScreen(
     gameId: String,
     onBackClick: () -> Unit,
-    viewModel: GameDetailViewModel = viewModel()
+    viewModel: GameDetailViewModel = viewModel(),
+    downloadViewModel: DownloadViewModel = viewModel()
 ) {
     val game by viewModel.game.collectAsState()
     val context = LocalContext.current
+    val download by downloadViewModel.getDownloadForGame(gameId).collectAsState(initial = null)
 
     LaunchedEffect(gameId) {
         viewModel.loadGame(gameId)
@@ -124,19 +129,193 @@ fun GameDetailScreen(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        Button(
-                            onClick = {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(gameData.downloadUrl))
-                                context.startActivity(intent)
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary
-                            )
-                        ) {
-                            Icon(Icons.Default.Download, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Download", style = MaterialTheme.typography.titleMedium)
+                        download?.let { downloadData ->
+                            when (downloadData.status) {
+                                DownloadStatus.DOWNLOADING -> {
+                                    val progress = if (downloadData.totalBytes > 0) {
+                                        downloadData.downloadedBytes.toFloat() / downloadData.totalBytes.toFloat()
+                                    } else 0f
+
+                                    Column {
+                                        Button(
+                                            onClick = { downloadViewModel.pauseDownload(downloadData.id) },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = MaterialTheme.colorScheme.tertiary
+                                            )
+                                        ) {
+                                            Icon(Icons.Default.Pause, contentDescription = null)
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text("Pausar Download", style = MaterialTheme.typography.titleMedium)
+                                        }
+
+                                        Spacer(modifier = Modifier.height(12.dp))
+
+                                        LinearProgressIndicator(
+                                            progress = progress,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(8.dp)
+                                                .clip(RoundedCornerShape(4.dp))
+                                        )
+
+                                        Spacer(modifier = Modifier.height(8.dp))
+
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text(
+                                                text = formatBytesDetail(downloadData.downloadedBytes),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                            Text(
+                                                text = "${(progress * 100).roundToInt()}%",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Text(
+                                                text = formatBytesDetail(downloadData.totalBytes),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                }
+                                DownloadStatus.PAUSED -> {
+                                    val progress = if (downloadData.totalBytes > 0) {
+                                        downloadData.downloadedBytes.toFloat() / downloadData.totalBytes.toFloat()
+                                    } else 0f
+
+                                    Column {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Button(
+                                                onClick = { downloadViewModel.resumeDownload(downloadData.id) },
+                                                modifier = Modifier.weight(1f),
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = MaterialTheme.colorScheme.primary
+                                                )
+                                            ) {
+                                                Icon(Icons.Default.PlayArrow, contentDescription = null)
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text("Retomar")
+                                            }
+
+                                            OutlinedButton(
+                                                onClick = { downloadViewModel.cancelDownload(downloadData.id) },
+                                                modifier = Modifier.weight(1f)
+                                            ) {
+                                                Icon(Icons.Default.Close, contentDescription = null)
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text("Cancelar")
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.height(12.dp))
+
+                                        LinearProgressIndicator(
+                                            progress = progress,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(8.dp)
+                                                .clip(RoundedCornerShape(4.dp))
+                                        )
+
+                                        Spacer(modifier = Modifier.height(8.dp))
+
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text(
+                                                text = "Pausado",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.tertiary,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Text(
+                                                text = "${(progress * 100).roundToInt()}%",
+                                                style = MaterialTheme.typography.bodySmall
+                                            )
+                                        }
+                                    }
+                                }
+                                DownloadStatus.COMPLETED -> {
+                                    Button(
+                                        onClick = {
+                                            val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+                                            context.startActivity(intent)
+                                        },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = MaterialTheme.colorScheme.primary
+                                        )
+                                    ) {
+                                        Icon(Icons.Default.CheckCircle, contentDescription = null)
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("Download Concluído", style = MaterialTheme.typography.titleMedium)
+                                    }
+                                }
+                                DownloadStatus.FAILED -> {
+                                    Button(
+                                        onClick = { downloadViewModel.resumeDownload(downloadData.id) },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = MaterialTheme.colorScheme.error
+                                        )
+                                    ) {
+                                        Icon(Icons.Default.Refresh, contentDescription = null)
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("Tentar Novamente", style = MaterialTheme.typography.titleMedium)
+                                    }
+                                }
+                                DownloadStatus.QUEUED -> {
+                                    Button(
+                                        onClick = { downloadViewModel.cancelDownload(downloadData.id) },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = MaterialTheme.colorScheme.secondary
+                                        )
+                                    ) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(20.dp),
+                                            strokeWidth = 2.dp,
+                                            color = MaterialTheme.colorScheme.onSecondary
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("Na Fila...", style = MaterialTheme.typography.titleMedium)
+                                    }
+                                }
+                                DownloadStatus.CANCELLED -> {
+                                    Button(
+                                        onClick = { downloadViewModel.startDownload(gameData) },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = MaterialTheme.colorScheme.primary
+                                        )
+                                    ) {
+                                        Icon(Icons.Default.Download, contentDescription = null)
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("Download", style = MaterialTheme.typography.titleMedium)
+                                    }
+                                }
+                            }
+                        } ?: run {
+                            Button(
+                                onClick = { downloadViewModel.startDownload(gameData) },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary
+                                )
+                            ) {
+                                Icon(Icons.Default.Download, contentDescription = null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Download", style = MaterialTheme.typography.titleMedium)
+                            }
                         }
 
                         Spacer(modifier = Modifier.height(24.dp))
@@ -241,5 +420,14 @@ fun InfoItem(
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold
         )
+    }
+}
+
+fun formatBytesDetail(bytes: Long): String {
+    return when {
+        bytes < 1024 -> "$bytes B"
+        bytes < 1024 * 1024 -> String.format("%.2f KB", bytes / 1024.0)
+        bytes < 1024 * 1024 * 1024 -> String.format("%.2f MB", bytes / (1024.0 * 1024.0))
+        else -> String.format("%.2f GB", bytes / (1024.0 * 1024.0 * 1024.0))
     }
 }

@@ -4,11 +4,15 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.TypeConverters
+import com.gamestore.app.data.model.Download
 import com.gamestore.app.data.model.Game
 
-@Database(entities = [Game::class], version = 1, exportSchema = false)
+@Database(entities = [Game::class, Download::class], version = 2, exportSchema = false)
+@TypeConverters(Converters::class)
 abstract class GameDatabase : RoomDatabase() {
     abstract fun gameDao(): GameDao
+    abstract fun downloadDao(): DownloadDao
 
     companion object {
         @Volatile
@@ -20,7 +24,9 @@ abstract class GameDatabase : RoomDatabase() {
                     context.applicationContext,
                     GameDatabase::class.java,
                     "game_database"
-                ).build()
+                )
+                    .fallbackToDestructiveMigration()
+                    .build()
                 INSTANCE = instance
                 instance
             }

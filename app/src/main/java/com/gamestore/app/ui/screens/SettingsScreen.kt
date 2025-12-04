@@ -14,26 +14,40 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.gamestore.app.ui.viewmodel.DownloadViewModel
 import com.gamestore.app.ui.viewmodel.MainViewModel
 
 @Composable
 fun SettingsScreen(
-    viewModel: MainViewModel = viewModel()
+    viewModel: MainViewModel = viewModel(),
+    downloadViewModel: DownloadViewModel = viewModel()
 ) {
+    val context = LocalContext.current
     val currentPlatform by viewModel.currentPlatform.collectAsState()
     val platforms by viewModel.platforms.collectAsState()
+    val downloadFolder by downloadViewModel.downloadFolder.collectAsState()
     var showPlatformDialog by remember { mutableStateOf(false) }
 
-    val launcher = rememberLauncherForActivityResult(
+    val databaseLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             result.data?.data?.let { uri ->
                 viewModel.importDatabase(uri)
             }
+        }
+    }
+
+    val folderLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        uri?.let {
+            val path = it.path ?: return@let
+            downloadViewModel.setDownloadFolder(path)
         }
     }
 
@@ -84,6 +98,45 @@ fun SettingsScreen(
                     modifier = Modifier.padding(16.dp)
                 ) {
                     Text(
+                        text = "Downloads",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Pasta de Download:",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = downloadFolder ?: "Padrão (Armazenamento interno)",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedButton(
+                        onClick = { folderLauncher.launch(null) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Folder, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Alterar Pasta de Download")
+                    }
+                }
+            }
+        }
+
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Text(
                         text = "Banco de Dados",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
@@ -95,7 +148,7 @@ fun SettingsScreen(
                                 addCategory(Intent.CATEGORY_OPENABLE)
                                 type = "application/zip"
                             }
-                            launcher.launch(intent)
+                            databaseLauncher.launch(intent)
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {

@@ -15,6 +15,7 @@ class PreferencesManager(private val context: Context) {
     companion object {
         val CURRENT_PLATFORM = stringPreferencesKey("current_platform")
         val PLATFORMS_JSON = stringPreferencesKey("platforms_json")
+        val DOWNLOAD_FOLDER = stringPreferencesKey("download_folder")
     }
 
     val currentPlatform: Flow<String?> = context.dataStore.data
@@ -27,6 +28,11 @@ class PreferencesManager(private val context: Context) {
             preferences[PLATFORMS_JSON]
         }
 
+    val downloadFolder: Flow<String?> = context.dataStore.data
+        .map { preferences ->
+            preferences[DOWNLOAD_FOLDER]
+        }
+
     suspend fun setCurrentPlatform(platform: String) {
         context.dataStore.edit { preferences ->
             preferences[CURRENT_PLATFORM] = platform
@@ -36,6 +42,12 @@ class PreferencesManager(private val context: Context) {
     suspend fun setPlatformsJson(json: String) {
         context.dataStore.edit { preferences ->
             preferences[PLATFORMS_JSON] = json
+        }
+    }
+
+    suspend fun setDownloadFolder(path: String) {
+        context.dataStore.edit { preferences ->
+            preferences[DOWNLOAD_FOLDER] = path
         }
     }
 }
