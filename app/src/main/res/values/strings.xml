@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Game Store</string>
+    <string name="app_name">GameFluxer</string>
     <string name="home">Home</string>
     <string name="search">Pesquisar</string>
     <string name="settings">Configurações</string>

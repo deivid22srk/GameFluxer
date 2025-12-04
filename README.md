@@ -1,4 +1,4 @@
-# Game Store
+# GameFluxer
 
 Uma loja de jogos offline bonita para Android, construída com Kotlin e Material You.
 

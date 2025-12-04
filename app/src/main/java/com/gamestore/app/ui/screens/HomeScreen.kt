@@ -64,7 +64,7 @@ fun HomeScreen(
             TopAppBar(
                 title = { 
                     Text(
-                        text = "Game Store",
+                        text = "GameFluxer",
                         fontWeight = FontWeight.Bold
                     )
                 },
