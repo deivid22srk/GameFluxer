@@ -32,8 +32,6 @@ import com.gamestore.app.ui.viewmodel.MainViewModel
 @Composable
 fun HomeScreen(
     onGameClick: (String) -> Unit,
-    onSearchClick: () -> Unit,
-    onSettingsClick: () -> Unit,
     viewModel: MainViewModel = viewModel()
 ) {
     val games by viewModel.games.collectAsState()
@@ -68,18 +66,9 @@ fun HomeScreen(
                         fontWeight = FontWeight.Bold
                     )
                 },
-                actions = {
-                    IconButton(onClick = onSearchClick) {
-                        Icon(Icons.Default.Search, contentDescription = "Search")
-                    }
-                    IconButton(onClick = onSettingsClick) {
-                        Icon(Icons.Default.Settings, contentDescription = "Settings")
-                    }
-                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                    actionIconContentColor = MaterialTheme.colorScheme.onPrimary
+                    titleContentColor = MaterialTheme.colorScheme.onPrimary
                 )
             )
         },
@@ -118,65 +107,63 @@ fun HomeScreen(
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    contentPadding = PaddingValues(bottom = 16.dp)
                 ) {
                     item {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp)
                         ) {
-                            Column {
-                                Text(
-                                    text = "Plataforma Atual",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    text = currentPlatform ?: "",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
+                            Text(
+                                text = "Plataforma Atual",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = currentPlatform ?: "",
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
 
                     if (categories.isNotEmpty()) {
                         item {
-                            Text(
-                                text = "Categorias",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                        item {
-                            LazyRow(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                items(categories) { category ->
-                                    FilterChip(
-                                        selected = false,
-                                        onClick = { viewModel.filterByCategory(category) },
-                                        label = { Text(category) }
-                                    )
+                            Column {
+                                Text(
+                                    text = "Categorias",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                                )
+                                LazyRow(
+                                    contentPadding = PaddingValues(horizontal = 16.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    items(categories) { category ->
+                                        FilterChip(
+                                            selected = false,
+                                            onClick = { viewModel.filterByCategory(category) },
+                                            label = { Text(category) }
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
 
-                    item {
-                        Text(
-                            text = "Todos os Jogos",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-
-                    items(games) { game ->
-                        GameCard(
-                            game = game,
-                            onClick = { onGameClick(game.id) }
+                    val gamesByCategory = games.groupBy { it.category }.entries.take(5)
+                    
+                    items(gamesByCategory.size) { index ->
+                        val entry = gamesByCategory.elementAt(index)
+                        val category = entry.key
+                        val categoryGames = entry.value.take(10)
+                        
+                        HorizontalGameSection(
+                            title = category,
+                            games = categoryGames,
+                            onGameClick = onGameClick
                         )
                     }
                 }
