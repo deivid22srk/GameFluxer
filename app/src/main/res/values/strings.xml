@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Game Store</string>
+    <string name="home">Home</string>
+    <string name="search">Pesquisar</string>
+    <string name="settings">Configurações</string>
+    <string name="all_games">Todos os Jogos</string>
+    <string name="categories">Categorias</string>
+    <string name="import_database">Importar Banco de Dados</string>
+    <string name="select_zip_file">Selecione o arquivo ZIP</string>
+    <string name="platform">Plataforma</string>
+    <string name="current_platform">Plataforma Atual</string>
+    <string name="change_platform">Trocar Plataforma</string>
+    <string name="game_details">Detalhes do Jogo</string>
+    <string name="download">Download</string>
+    <string name="description">Descrição</string>
+    <string name="version">Versão</string>
+    <string name="size">Tamanho</string>
+    <string name="rating">Avaliação</string>
+    <string name="developer">Desenvolvedor</string>
+    <string name="category">Categoria</string>
+    <string name="search_games">Pesquisar jogos...</string>
+    <string name="no_games_found">Nenhum jogo encontrado</string>
+    <string name="import_success">Banco de dados importado com sucesso</string>
+    <string name="import_error">Erro ao importar banco de dados</string>
+    <string name="no_database">Nenhum banco de dados importado</string>
+    <string name="import_database_message">Por favor, importe um banco de dados ZIP para começar</string>
+    <string name="screenshots">Capturas de Tela</string>
+    <string name="download_link">Link de Download</string>
+</resources>
