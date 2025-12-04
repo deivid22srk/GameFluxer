@@ -13,8 +13,9 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
-    private val repository = (application as GameStoreApplication).repository
-    private val preferencesManager = application.preferencesManager
+    private val app = application as GameStoreApplication
+    private val repository = app.repository
+    private val preferencesManager = app.preferencesManager
     private val zipImporter = ZipImporter(application)
 
     private val _currentPlatform = MutableStateFlow<String?>(null)

@@ -9,7 +9,8 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 class GameDetailViewModel(application: Application) : AndroidViewModel(application) {
-    private val repository = (application as GameStoreApplication).repository
+    private val app = application as GameStoreApplication
+    private val repository = app.repository
 
     private val _game = MutableStateFlow<Game?>(null)
     val game: StateFlow<Game?> = _game
