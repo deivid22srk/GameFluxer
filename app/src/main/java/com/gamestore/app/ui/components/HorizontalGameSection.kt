@@ -1,4 +1,4 @@
-package com.gamestore.app.ui.screens
+package com.gamestore.app.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
