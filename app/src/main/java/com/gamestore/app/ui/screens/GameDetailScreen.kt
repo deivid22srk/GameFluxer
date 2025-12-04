@@ -26,7 +26,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.gamestore.app.ui.viewmodel.GameDetailViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GameDetailScreen(
     gameId: String,
@@ -40,38 +39,38 @@ fun GameDetailScreen(
         viewModel.loadGame(gameId)
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Detalhes do Jogo") },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Voltar")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimary
-                )
-            )
-        }
-    ) { paddingValues ->
-        game?.let { gameData ->
+    game?.let { gameData ->
+        Box(modifier = Modifier.fillMaxSize()) {
             LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
+                modifier = Modifier.fillMaxSize()
             ) {
                 item {
-                    AsyncImage(
-                        model = gameData.bannerUrl,
-                        contentDescription = gameData.name,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(220.dp),
-                        contentScale = ContentScale.Crop
-                    )
+                    Box {
+                        AsyncImage(
+                            model = gameData.bannerUrl,
+                            contentDescription = gameData.name,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(280.dp),
+                            contentScale = ContentScale.Crop
+                        )
+                        
+                        IconButton(
+                            onClick = onBackClick,
+                            modifier = Modifier
+                                .padding(8.dp)
+                                .background(
+                                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                        ) {
+                            Icon(
+                                Icons.Default.ArrowBack,
+                                contentDescription = "Voltar",
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
                 }
 
                 item {
