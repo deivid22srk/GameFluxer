@@ -12,6 +12,7 @@ import com.gamestore.app.data.repository.DownloadRepository
 import com.gamestore.app.service.DownloadService
 import com.gamestore.app.util.MediaFireExtractor
 import com.gamestore.app.util.GoFileExtractor
+import com.gamestore.app.util.PythonGoFileExtractor
 import com.gamestore.app.util.GoogleDriveExtractor
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -70,15 +71,18 @@ class DownloadViewModel(application: Application) : AndroidViewModel(application
                 var customHeaders: String? = null
                 
                 when {
-                    MediaFireExtractor.isMediaFireUrl(downloadUrl) -> {
-                        downloadUrl = MediaFireExtractor.extractDirectDownloadLinkWithRetry(downloadUrl)
-                    }
-                    GoFileExtractor.isGoFileUrl(downloadUrl) -> {
-                        val goFileInfo = GoFileExtractor.extractDirectDownloadLinkWithRetry(downloadUrl)
+                    PythonGoFileExtractor.isGoFileUrl(downloadUrl) -> {
+                        val goFileInfo = PythonGoFileExtractor.extractGoFileLink(
+                            getApplication(),
+                            downloadUrl
+                        )
                         if (goFileInfo != null) {
                             downloadUrl = goFileInfo.url
                             customHeaders = goFileInfo.headers.entries.joinToString("|") { "${it.key}:${it.value}" }
                         }
+                    }
+                    MediaFireExtractor.isMediaFireUrl(downloadUrl) -> {
+                        downloadUrl = MediaFireExtractor.extractDirectDownloadLinkWithRetry(downloadUrl)
                     }
                     GoogleDriveExtractor.isGoogleDriveUrl(downloadUrl) -> {
                         downloadUrl = GoogleDriveExtractor.extractDirectDownloadLinkWithRetry(downloadUrl)
