@@ -19,13 +19,19 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import android.os.Build
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalContext
 import com.gamestore.app.ui.screens.DownloadsScreen
 import com.gamestore.app.ui.screens.GameDetailScreen
 import com.gamestore.app.ui.screens.HomeScreen
+import com.gamestore.app.ui.screens.PermissionScreen
 import com.gamestore.app.ui.screens.SearchScreen
 import com.gamestore.app.ui.screens.SettingsScreen
+import com.gamestore.app.util.PermissionHelper
 
 sealed class Screen(val route: String) {
+    object Permission : Screen("permission")
     object Home : Screen("home")
     object Search : Screen("search")
     object Settings : Screen("settings")
@@ -67,8 +73,14 @@ val navigationItems = listOf(
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
+    val context = LocalContext.current
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
+
+    val hasPermissions = PermissionHelper.hasStoragePermission(context) && 
+        (PermissionHelper.hasNotificationPermission(context) || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU)
+
+    val startDestination = if (hasPermissions) Screen.Home.route else Screen.Permission.route
     
     val showBottomBar = currentDestination?.route in listOf(
         Screen.Home.route,
@@ -148,9 +160,19 @@ fun AppNavigation() {
     ) { paddingValues ->
         NavHost(
             navController = navController,
-            startDestination = Screen.Home.route,
+            startDestination = startDestination,
             modifier = Modifier.padding(paddingValues)
         ) {
+            composable(Screen.Permission.route) {
+                PermissionScreen(
+                    onPermissionsGranted = {
+                        navController.navigate(Screen.Home.route) {
+                            popUpTo(Screen.Permission.route) { inclusive = true }
+                        }
+                    }
+                )
+            }
+
             composable(Screen.Home.route) {
                 HomeScreen(
                     onGameClick = { gameId ->

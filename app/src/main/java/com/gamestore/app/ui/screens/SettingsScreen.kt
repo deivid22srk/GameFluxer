@@ -5,8 +5,10 @@ import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Environment
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import com.gamestore.app.util.PermissionHelper
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -26,6 +28,7 @@ import com.gamestore.app.ui.components.FolderPickerDialog
 import com.gamestore.app.ui.viewmodel.DownloadViewModel
 import com.gamestore.app.ui.viewmodel.MainViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     viewModel: MainViewModel = viewModel(),
@@ -35,14 +38,35 @@ fun SettingsScreen(
     val currentPlatform by viewModel.currentPlatform.collectAsState()
     val platforms by viewModel.platforms.collectAsState()
     val downloadFolder by downloadViewModel.downloadFolder.collectAsState()
+    val importStatus by viewModel.importStatus.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
     var showPlatformDialog by remember { mutableStateOf(false) }
     var showFolderPicker by remember { mutableStateOf(false) }
     var showStoragePermissionDialog by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(importStatus) {
+        importStatus?.let { status ->
+            snackbarHostState.showSnackbar(
+                message = status,
+                duration = SnackbarDuration.Long
+            )
+            viewModel.clearImportStatus()
+        }
+    }
 
     val storagePermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (isGranted) {
+            showFolderPicker = true
+        }
+    }
+
+    val manageStorageLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { _ ->
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && Environment.isExternalStorageManager()) {
             showFolderPicker = true
         }
     }
@@ -57,9 +81,14 @@ fun SettingsScreen(
         }
     }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize()
-    ) {
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { paddingValues ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
         item {
             Card(
                 modifier = Modifier
@@ -123,21 +152,10 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                     OutlinedButton(
                         onClick = { 
-                            // Verifica permissão de storage
-                            when {
-                                Build.VERSION.SDK_INT >= Build.VERSION_CODES.R -> {
-                                    // Android 11+ - não precisa de permissão runtime para pasta pública
-                                    showFolderPicker = true
-                                }
-                                ContextCompat.checkSelfPermission(
-                                    context,
-                                    Manifest.permission.WRITE_EXTERNAL_STORAGE
-                                ) == PackageManager.PERMISSION_GRANTED -> {
-                                    showFolderPicker = true
-                                }
-                                else -> {
-                                    showStoragePermissionDialog = true
-                                }
+                            if (PermissionHelper.hasStoragePermission(context)) {
+                                showFolderPicker = true
+                            } else {
+                                showStoragePermissionDialog = true
                             }
                         },
                         modifier = Modifier.fillMaxWidth()
@@ -173,11 +191,21 @@ fun SettingsScreen(
                             }
                             databaseLauncher.launch(intent)
                         },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isLoading
                     ) {
-                        Icon(Icons.Default.Upload, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Importar Novo Banco de Dados")
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Importando...")
+                        } else {
+                            Icon(Icons.Default.Upload, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Importar Novo Banco de Dados")
+                        }
                     }
                 }
             }
@@ -213,17 +241,28 @@ fun SettingsScreen(
             }
         }
     }
+    }
 
     if (showStoragePermissionDialog) {
         AlertDialog(
             onDismissRequest = { showStoragePermissionDialog = false },
             title = { Text("Permissão necessária") },
-            text = { Text("O app precisa de permissão para acessar o armazenamento e salvar os downloads.") },
+            text = { 
+                Text(
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        "O app precisa de permissão para gerenciar todos os arquivos. Você será direcionado para as configurações."
+                    } else {
+                        "O app precisa de permissão para acessar o armazenamento e salvar os downloads."
+                    }
+                )
+            },
             confirmButton = {
                 TextButton(
                     onClick = {
                         showStoragePermissionDialog = false
-                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                            PermissionHelper.requestStoragePermission(context as Activity)
+                        } else {
                             storagePermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
                         }
                     }
