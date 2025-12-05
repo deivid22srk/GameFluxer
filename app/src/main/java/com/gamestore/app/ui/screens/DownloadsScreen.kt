@@ -590,69 +590,6 @@ fun DownloadItemCard(
             }
         }
     }
-
-    showDeleteDialog?.let { download ->
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = null },
-            icon = {
-                Box(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .background(
-                            MaterialTheme.colorScheme.errorContainer,
-                            shape = CircleShape
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Default.Delete,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
-            },
-            title = { 
-                Text(
-                    "Excluir download?",
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleLarge
-                ) 
-            },
-            text = { 
-                Text(
-                    "O arquivo de ${download.gameName} será removido permanentemente do dispositivo.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                ) 
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.deleteDownload(download)
-                        showDeleteDialog = null
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    ),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(Icons.Default.Delete, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Excluir", fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                OutlinedButton(
-                    onClick = { showDeleteDialog = null },
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("Cancelar")
-                }
-            },
-            shape = RoundedCornerShape(28.dp)
-        )
-    }
 }
 
 @Composable
