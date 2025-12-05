@@ -7,11 +7,16 @@ import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.*
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -20,10 +25,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
@@ -80,10 +89,32 @@ fun GameDetailScreen(
     if (showPermissionDialog) {
         AlertDialog(
             onDismissRequest = { showPermissionDialog = false },
-            title = { Text("Permissão necessária") },
-            text = { Text("O app precisa de permissão para enviar notificações e mostrar o progresso dos downloads.") },
+            icon = {
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primaryContainer
+                ) {
+                    Icon(
+                        Icons.Default.Notifications,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .padding(16.dp)
+                            .size(32.dp),
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            },
+            title = { 
+                Text(
+                    "Permissão necessária",
+                    fontWeight = FontWeight.Bold
+                ) 
+            },
+            text = { 
+                Text("O app precisa de permissão para enviar notificações e mostrar o progresso dos downloads.") 
+            },
             confirmButton = {
-                TextButton(
+                FilledTonalButton(
                     onClick = {
                         showPermissionDialog = false
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -98,7 +129,8 @@ fun GameDetailScreen(
                 TextButton(onClick = { showPermissionDialog = false }) {
                     Text("Cancelar")
                 }
-            }
+            },
+            shape = RoundedCornerShape(28.dp)
         )
     }
 
@@ -114,18 +146,36 @@ fun GameDetailScreen(
                             contentDescription = gameData.name,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(280.dp),
+                                .height(320.dp),
                             contentScale = ContentScale.Crop
                         )
                         
-                        IconButton(
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(320.dp)
+                                .background(
+                                    Brush.verticalGradient(
+                                        colors = listOf(
+                                            Color.Transparent,
+                                            Color.Transparent,
+                                            MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
+                                            MaterialTheme.colorScheme.surface
+                                        ),
+                                        startY = 0f,
+                                        endY = 1000f
+                                    )
+                                )
+                        )
+                        
+                        FilledTonalIconButton(
                             onClick = onBackClick,
                             modifier = Modifier
-                                .padding(8.dp)
-                                .background(
-                                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
-                                    shape = RoundedCornerShape(12.dp)
-                                )
+                                .padding(16.dp)
+                                .shadow(8.dp, CircleShape),
+                            colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
+                            )
                         ) {
                             Icon(
                                 Icons.Default.ArrowBack,
@@ -140,287 +190,153 @@ fun GameDetailScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp)
+                            .offset(y = (-40).dp)
+                            .padding(horizontal = 20.dp)
                     ) {
                         Row(
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.Bottom,
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            AsyncImage(
-                                model = gameData.iconUrl,
-                                contentDescription = gameData.name,
+                            Card(
                                 modifier = Modifier
-                                    .size(80.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                                contentScale = ContentScale.Crop
-                            )
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column {
+                                    .size(100.dp)
+                                    .shadow(12.dp, RoundedCornerShape(24.dp)),
+                                shape = RoundedCornerShape(24.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                                )
+                            ) {
+                                AsyncImage(
+                                    model = gameData.iconUrl,
+                                    contentDescription = gameData.name,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+                            }
+                            
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = gameData.name,
-                                    style = MaterialTheme.typography.headlineSmall,
-                                    fontWeight = FontWeight.Bold
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    fontWeight = FontWeight.Black,
+                                    lineHeight = 32.sp
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     text = gameData.developer,
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    style = MaterialTheme.typography.bodyLarge,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        Icons.Default.Star,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = String.format("%.2f", gameData.rating),
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        download?.let { downloadData ->
-                            when (downloadData.status) {
-                                DownloadStatus.DOWNLOADING -> {
-                                    val progress = if (downloadData.totalBytes > 0) {
-                                        downloadData.downloadedBytes.toFloat() / downloadData.totalBytes.toFloat()
-                                    } else 0f
-
-                                    Column {
-                                        Button(
-                                            onClick = { downloadViewModel.pauseDownload(downloadData.id) },
-                                            modifier = Modifier.fillMaxWidth(),
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = MaterialTheme.colorScheme.tertiary
-                                            )
-                                        ) {
-                                            Icon(Icons.Default.Pause, contentDescription = null)
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text("Pausar Download", style = MaterialTheme.typography.titleMedium)
-                                        }
-
-                                        Spacer(modifier = Modifier.height(12.dp))
-
-                                        LinearProgressIndicator(
-                                            progress = progress,
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .height(8.dp)
-                                                .clip(RoundedCornerShape(4.dp))
-                                        )
-
-                                        Spacer(modifier = Modifier.height(8.dp))
-
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = MaterialTheme.colorScheme.primaryContainer
+                                    ) {
                                         Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
                                         ) {
-                                            Text(
-                                                text = formatBytesDetail(downloadData.downloadedBytes),
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            Icon(
+                                                Icons.Default.Star,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(18.dp)
                                             )
                                             Text(
-                                                text = "${(progress * 100).roundToInt()}%",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                            Text(
-                                                text = formatBytesDetail(downloadData.totalBytes),
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                text = String.format("%.1f", gameData.rating),
+                                                style = MaterialTheme.typography.labelLarge,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onPrimaryContainer
                                             )
                                         }
                                     }
-                                }
-                                DownloadStatus.PAUSED -> {
-                                    val progress = if (downloadData.totalBytes > 0) {
-                                        downloadData.downloadedBytes.toFloat() / downloadData.totalBytes.toFloat()
-                                    } else 0f
-
-                                    Column {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                        ) {
-                                            Button(
-                                                onClick = { downloadViewModel.resumeDownload(downloadData.id) },
-                                                modifier = Modifier.weight(1f),
-                                                colors = ButtonDefaults.buttonColors(
-                                                    containerColor = MaterialTheme.colorScheme.primary
-                                                )
-                                            ) {
-                                                Icon(Icons.Default.PlayArrow, contentDescription = null)
-                                                Spacer(modifier = Modifier.width(4.dp))
-                                                Text("Retomar")
-                                            }
-
-                                            OutlinedButton(
-                                                onClick = { downloadViewModel.cancelDownload(downloadData.id) },
-                                                modifier = Modifier.weight(1f)
-                                            ) {
-                                                Icon(Icons.Default.Close, contentDescription = null)
-                                                Spacer(modifier = Modifier.width(4.dp))
-                                                Text("Cancelar")
-                                            }
-                                        }
-
-                                        Spacer(modifier = Modifier.height(12.dp))
-
-                                        LinearProgressIndicator(
-                                            progress = progress,
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .height(8.dp)
-                                                .clip(RoundedCornerShape(4.dp))
-                                        )
-
-                                        Spacer(modifier = Modifier.height(8.dp))
-
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween
-                                        ) {
-                                            Text(
-                                                text = "Pausado",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.tertiary,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                            Text(
-                                                text = "${(progress * 100).roundToInt()}%",
-                                                style = MaterialTheme.typography.bodySmall
-                                            )
-                                        }
-                                    }
-                                }
-                                DownloadStatus.COMPLETED -> {
-                                    Button(
-                                        onClick = {
-                                            val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
-                                            context.startActivity(intent)
-                                        },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = MaterialTheme.colorScheme.primary
-                                        )
+                                    
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = MaterialTheme.colorScheme.secondaryContainer
                                     ) {
-                                        Icon(Icons.Default.CheckCircle, contentDescription = null)
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text("Download Concluído", style = MaterialTheme.typography.titleMedium)
+                                        Text(
+                                            text = gameData.category,
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                        )
                                     }
                                 }
-                                DownloadStatus.FAILED -> {
-                                    Button(
-                                        onClick = { downloadViewModel.resumeDownload(downloadData.id) },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = MaterialTheme.colorScheme.error
-                                        )
-                                    ) {
-                                        Icon(Icons.Default.Refresh, contentDescription = null)
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text("Tentar Novamente", style = MaterialTheme.typography.titleMedium)
-                                    }
-                                }
-                                DownloadStatus.QUEUED -> {
-                                    Button(
-                                        onClick = { downloadViewModel.cancelDownload(downloadData.id) },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = MaterialTheme.colorScheme.secondary
-                                        )
-                                    ) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(20.dp),
-                                            strokeWidth = 2.dp,
-                                            color = MaterialTheme.colorScheme.onSecondary
-                                        )
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text("Na Fila...", style = MaterialTheme.typography.titleMedium)
-                                    }
-                                }
-                                DownloadStatus.CANCELLED -> {
-                                    Button(
-                                        onClick = onDownloadClick,
-                                        modifier = Modifier.fillMaxWidth(),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = MaterialTheme.colorScheme.primary
-                                        )
-                                    ) {
-                                        Icon(Icons.Default.Download, contentDescription = null)
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text("Download", style = MaterialTheme.typography.titleMedium)
-                                    }
-                                }
-                            }
-                        } ?: run {
-                            Button(
-                                onClick = onDownloadClick,
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.primary
-                                )
-                            ) {
-                                Icon(Icons.Default.Download, contentDescription = null)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Download", style = MaterialTheme.typography.titleMedium)
                             }
                         }
 
                         Spacer(modifier = Modifier.height(24.dp))
+
+                        AnimatedDownloadButton(
+                            download = download,
+                            onDownloadClick = onDownloadClick,
+                            onPauseClick = { download?.let { downloadViewModel.pauseDownload(it.id) } },
+                            onResumeClick = { download?.let { downloadViewModel.resumeDownload(it.id) } },
+                            onCancelClick = { download?.let { downloadViewModel.cancelDownload(it.id) } }
+                        )
+
+                        Spacer(modifier = Modifier.height(20.dp))
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceEvenly
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            InfoItem(
-                                icon = Icons.Default.Category,
-                                label = "Categoria",
-                                value = gameData.category
-                            )
-                            InfoItem(
+                            InfoCard(
                                 icon = Icons.Default.Info,
                                 label = "Versão",
-                                value = gameData.version
+                                value = gameData.version,
+                                modifier = Modifier.weight(1f)
                             )
-                            InfoItem(
+                            InfoCard(
                                 icon = Icons.Default.Storage,
                                 label = "Tamanho",
-                                value = gameData.size
+                                value = gameData.size,
+                                modifier = Modifier.weight(1f)
                             )
                         }
 
                         Spacer(modifier = Modifier.height(24.dp))
 
-                        Text(
-                            text = "Descrição",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = gameData.description,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(20.dp)
+                            ) {
+                                Text(
+                                    text = "Sobre o jogo",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = gameData.description,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    lineHeight = 24.sp
+                                )
+                            }
+                        }
 
                         if (gameData.screenshots.isNotEmpty()) {
                             Spacer(modifier = Modifier.height(24.dp))
                             Text(
                                 text = "Capturas de Tela",
-                                style = MaterialTheme.typography.titleMedium,
+                                style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(12.dp))
                         }
                     }
                 }
@@ -428,23 +344,28 @@ fun GameDetailScreen(
                 if (gameData.screenshots.isNotEmpty()) {
                     item {
                         LazyRow(
-                            contentPadding = PaddingValues(horizontal = 16.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            contentPadding = PaddingValues(horizontal = 20.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             val screenshotList = gameData.screenshots.split(",")
                             items(screenshotList) { screenshot ->
-                                AsyncImage(
-                                    model = screenshot.trim(),
-                                    contentDescription = null,
+                                Card(
                                     modifier = Modifier
-                                        .width(280.dp)
-                                        .height(160.dp)
-                                        .clip(RoundedCornerShape(12.dp)),
-                                    contentScale = ContentScale.Crop
-                                )
+                                        .width(320.dp)
+                                        .height(180.dp),
+                                    shape = RoundedCornerShape(16.dp),
+                                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                                ) {
+                                    AsyncImage(
+                                        model = screenshot.trim(),
+                                        contentDescription = null,
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                }
                             }
                         }
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(24.dp))
                     }
                 }
             }
@@ -453,31 +374,347 @@ fun GameDetailScreen(
 }
 
 @Composable
-fun InfoItem(
+fun AnimatedDownloadButton(
+    download: com.gamestore.app.data.model.Download?,
+    onDownloadClick: () -> Unit,
+    onPauseClick: () -> Unit,
+    onResumeClick: () -> Unit,
+    onCancelClick: () -> Unit
+) {
+    AnimatedVisibility(
+        visible = true,
+        enter = fadeIn(),
+        exit = fadeOut()
+    ) {
+        download?.let { downloadData ->
+            when (downloadData.status) {
+                DownloadStatus.DOWNLOADING, DownloadStatus.QUEUED -> {
+                    val progress = if (downloadData.totalBytes > 0) {
+                        downloadData.downloadedBytes.toFloat() / downloadData.totalBytes.toFloat()
+                    } else 0f
+                    
+                    val animatedProgress by animateFloatAsState(
+                        targetValue = progress,
+                        animationSpec = tween(300),
+                        label = "progress"
+                    )
+                    
+                    val isQueued = downloadData.status == DownloadStatus.QUEUED
+                    val hasProgress = downloadData.downloadedBytes > 0
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(20.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        if (isQueued && !hasProgress) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(20.dp),
+                                                strokeWidth = 2.dp,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                        Text(
+                                            text = if (isQueued && !hasProgress) "Iniciando..." else "Baixando",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                    }
+                                    if (downloadData.totalBytes > 0) {
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = "${formatBytesDetail(downloadData.downloadedBytes)} de ${formatBytesDetail(downloadData.totalBytes)}",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                                        )
+                                    } else if (hasProgress) {
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = formatBytesDetail(downloadData.downloadedBytes),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                                        )
+                                    }
+                                }
+                                
+                                FilledIconButton(
+                                    onClick = onPauseClick,
+                                    colors = IconButtonDefaults.filledIconButtonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary
+                                    )
+                                ) {
+                                    Icon(
+                                        Icons.Default.Pause,
+                                        contentDescription = "Pausar",
+                                        tint = MaterialTheme.colorScheme.onPrimary
+                                    )
+                                }
+                            }
+                            
+                            Spacer(modifier = Modifier.height(16.dp))
+                            
+                            Column {
+                                if (downloadData.totalBytes > 0) {
+                                    LinearProgressIndicator(
+                                        progress = { animatedProgress },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(10.dp)
+                                            .clip(RoundedCornerShape(5.dp)),
+                                        color = MaterialTheme.colorScheme.primary,
+                                        trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = "${(animatedProgress * 100).roundToInt()}%",
+                                        style = MaterialTheme.typography.headlineSmall,
+                                        fontWeight = FontWeight.Black,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                } else {
+                                    LinearProgressIndicator(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(10.dp)
+                                            .clip(RoundedCornerShape(5.dp)),
+                                        color = MaterialTheme.colorScheme.primary,
+                                        trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                DownloadStatus.PAUSED -> {
+                    val progress = if (downloadData.totalBytes > 0) {
+                        downloadData.downloadedBytes.toFloat() / downloadData.totalBytes.toFloat()
+                    } else 0f
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.tertiaryContainer
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(20.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Download pausado",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "${(progress * 100).roundToInt()}% concluído",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
+                                    )
+                                }
+                            }
+                            
+                            Spacer(modifier = Modifier.height(16.dp))
+                            
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                FilledTonalButton(
+                                    onClick = onResumeClick,
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Icon(Icons.Default.PlayArrow, contentDescription = null)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Retomar", fontWeight = FontWeight.Bold)
+                                }
+
+                                OutlinedButton(
+                                    onClick = onCancelClick,
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Icon(Icons.Default.Close, contentDescription = null)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Cancelar", fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
+                DownloadStatus.COMPLETED -> {
+                    Button(
+                        onClick = {},
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(64.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary
+                        ),
+                        shape = RoundedCornerShape(16.dp),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            "Download Concluído",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+                DownloadStatus.FAILED -> {
+                    Button(
+                        onClick = onResumeClick,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(64.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error
+                        ),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Icon(Icons.Default.Refresh, contentDescription = null)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            "Tentar Novamente",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+                DownloadStatus.CANCELLED -> {
+                    Button(
+                        onClick = onDownloadClick,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(64.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary
+                        ),
+                        shape = RoundedCornerShape(16.dp),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Download,
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            "Baixar Jogo",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        } ?: run {
+            Button(
+                onClick = onDownloadClick,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(64.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                ),
+                shape = RoundedCornerShape(16.dp),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+            ) {
+                Icon(
+                    Icons.Default.Download,
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    "Baixar Jogo",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun InfoCard(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
-    value: String
+    value: String,
+    modifier: Modifier = Modifier
 ) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer
+        )
     ) {
-        Icon(
-            icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(24.dp)
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold
-        )
+        Row(
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.2f)
+            ) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier
+                        .padding(10.dp)
+                        .size(20.dp)
+                )
+            }
+            
+            Column {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                )
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            }
+        }
     }
 }
 
