@@ -55,43 +55,28 @@ jobs:
         mv GameFluxer-source-${{ steps.commit.outputs.sha_short }}.zip GameFluxer/
         
     - name: Send source code to Telegram
-      env:
-        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       run: |
         COMMIT_SHA="${{ steps.commit.outputs.sha_short }}"
         COMMIT_MSG="${{ steps.commit.outputs.message }}"
         COMMIT_AUTHOR="${{ steps.commit.outputs.author }}"
         COMMIT_DATE="${{ steps.commit.outputs.date }}"
+        TELEGRAM_BOT_TOKEN="8223002882:AAHc4n7whOcjw-BQhKry1X20Aqedxj9nGvM"
+        TELEGRAM_CHAT_ID="-1003414093423"
         
-        MESSAGE="🚀 *GameFluxer - Build Completo*%0A%0A"
-        MESSAGE="${MESSAGE}✅ *Status:* Build com sucesso%0A"
+        # Build message
+        MESSAGE="🚀 *GameFluxer - Código Fonte*%0A%0A"
+        MESSAGE="${MESSAGE}✅ *Build:* Sucesso%0A"
         MESSAGE="${MESSAGE}📦 *Commit:* \`${COMMIT_SHA}\`%0A"
         MESSAGE="${MESSAGE}💬 *Mensagem:* ${COMMIT_MSG}%0A"
         MESSAGE="${MESSAGE}👤 *Autor:* ${COMMIT_AUTHOR}%0A"
         MESSAGE="${MESSAGE}📅 *Data:* ${COMMIT_DATE}%0A"
         MESSAGE="${MESSAGE}🌿 *Branch:* \`${GITHUB_REF_NAME}\`%0A%0A"
-        MESSAGE="${MESSAGE}📎 Código fonte anexado abaixo."
+        MESSAGE="${MESSAGE}📎 Arquivo: GameFluxer-source-${COMMIT_SHA}.zip"
         
-        curl -F "chat_id=${TELEGRAM_CHAT_ID}" \
-             -F "document=@GameFluxer-source-${COMMIT_SHA}.zip" \
-             -F "caption=${MESSAGE}" \
-             -F "parse_mode=Markdown" \
-             "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument"
-        
-    - name: Send APK to Telegram
-      env:
-        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-      run: |
-        COMMIT_SHA="${{ steps.commit.outputs.sha_short }}"
-        
-        MESSAGE="📱 *GameFluxer APK Debug*%0A%0A"
-        MESSAGE="${MESSAGE}📦 *Versão:* \`${COMMIT_SHA}\`%0A"
-        MESSAGE="${MESSAGE}🔧 *Build:* Debug"
-        
-        curl -F "chat_id=${TELEGRAM_CHAT_ID}" \
-             -F "document=@./app/build/outputs/apk/debug/app-debug.apk" \
-             -F "caption=${MESSAGE}" \
-             -F "parse_mode=Markdown" \
-             "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument"
+        # Send to Telegram
+        curl -X POST \
+          -F "chat_id=${TELEGRAM_CHAT_ID}" \
+          -F "document=@GameFluxer-source-${COMMIT_SHA}.zip" \
+          -F "caption=${MESSAGE}" \
+          -F "parse_mode=Markdown" \
+          "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument"
