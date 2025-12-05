@@ -58,10 +58,6 @@ class DownloadViewModel(application: Application) : AndroidViewModel(application
                     folderFile.mkdirs()
                 }
                 
-                val fileName = sanitizeFileName(game.name) + "_" + game.version + ".apk"
-                val filePath = File(folder, fileName).absolutePath
-
-                // Extrai o link direto se for MediaFire, GoFile ou Google Drive
                 var downloadUrl = game.downloadUrl
                 var customHeaders: String? = null
                 
@@ -80,6 +76,10 @@ class DownloadViewModel(application: Application) : AndroidViewModel(application
                         downloadUrl = GoogleDriveExtractor.extractDirectDownloadLinkWithRetry(game.downloadUrl)
                     }
                 }
+                
+                val fileExtension = detectFileExtension(downloadUrl, game.name)
+                val fileName = sanitizeFileName(game.name) + "_" + game.version + fileExtension
+                val filePath = File(folder, fileName).absolutePath
 
                 val download = Download(
                     id = UUID.randomUUID().toString(),
@@ -132,6 +132,32 @@ class DownloadViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             preferencesManager.setDownloadFolder(path)
         }
+    }
+
+    private fun detectFileExtension(url: String, gameName: String): String {
+        val cleanUrl = url.substringBefore("?").lowercase()
+        
+        val commonExtensions = listOf(
+            ".iso", ".zip", ".7z", ".rar", ".apk", ".xapk",
+            ".exe", ".msi", ".bin", ".img", ".cso", ".daa",
+            ".tar", ".gz", ".bz2", ".torrent"
+        )
+        
+        for (ext in commonExtensions) {
+            if (cleanUrl.endsWith(ext)) {
+                return ext
+            }
+        }
+        
+        if (gameName.lowercase().contains("ps2") || gameName.lowercase().contains("playstation")) {
+            return ".iso"
+        }
+        
+        if (gameName.lowercase().contains("android")) {
+            return ".apk"
+        }
+        
+        return ".zip"
     }
 
     private fun getDefaultDownloadFolder(): String {

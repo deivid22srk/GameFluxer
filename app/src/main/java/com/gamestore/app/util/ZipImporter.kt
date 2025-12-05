@@ -9,6 +9,7 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import java.io.*
 import java.util.zip.ZipInputStream
+import java.util.Base64
 
 class ZipImporter(private val context: Context) {
     
@@ -53,7 +54,7 @@ class ZipImporter(private val context: Context) {
             Log.d(TAG, "Found config.json at: ${configFile.absolutePath}")
             val baseDir = configFile.parentFile ?: tempDir
 
-            val configJson = configFile.readText()
+            val configJson = decodeIfBase64(configFile.readText())
             Log.d(TAG, "Config JSON: $configJson")
             val config = Gson().fromJson(configJson, DatabaseConfig::class.java)
 
@@ -63,7 +64,7 @@ class ZipImporter(private val context: Context) {
                 val dbFile = File(baseDir, platform.databasePath)
                 Log.d(TAG, "Looking for database: ${platform.databasePath} at ${dbFile.absolutePath}")
                 if (dbFile.exists()) {
-                    val gamesJson = dbFile.readText()
+                    val gamesJson = decodeIfBase64(dbFile.readText())
                     val gameListType = object : TypeToken<List<Game>>() {}.type
                     val games: List<Game> = Gson().fromJson(gamesJson, gameListType)
                     Log.d(TAG, "Loaded ${games.size} games for platform ${platform.name}")
@@ -131,5 +132,42 @@ class ZipImporter(private val context: Context) {
                 entry = zipInputStream.nextEntry
             }
         }
+    }
+    
+    private fun decodeIfBase64(content: String): String {
+        try {
+            val trimmed = content.trim()
+            
+            if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+                return content
+            }
+            
+            if (isBase64(trimmed)) {
+                Log.d(TAG, "Detected Base64 content, decoding...")
+                val decoded = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    String(Base64.getDecoder().decode(trimmed))
+                } else {
+                    String(android.util.Base64.decode(trimmed, android.util.Base64.DEFAULT))
+                }
+                Log.d(TAG, "Successfully decoded Base64")
+                return decoded
+            }
+            
+            return content
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to decode Base64, using original content: ${e.message}")
+            return content
+        }
+    }
+    
+    private fun isBase64(str: String): Boolean {
+        if (str.isEmpty()) return false
+        
+        val base64Pattern = "^[A-Za-z0-9+/]*={0,2}$"
+        if (!str.matches(Regex(base64Pattern))) {
+            return false
+        }
+        
+        return str.length % 4 == 0 && str.length > 100
     }
 }

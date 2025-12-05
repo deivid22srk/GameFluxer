@@ -8,6 +8,7 @@ import com.gamestore.app.GameStoreApplication
 import com.gamestore.app.data.model.DatabaseConfig
 import com.gamestore.app.data.model.Game
 import com.gamestore.app.util.ZipImporter
+import com.gamestore.app.util.GitHubImporter
 import com.google.gson.Gson
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -17,6 +18,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = app.repository
     private val preferencesManager = app.preferencesManager
     private val zipImporter = ZipImporter(application)
+    private val githubImporter = GitHubImporter(application)
 
     private val _currentPlatform = MutableStateFlow<String?>(null)
     val currentPlatform: StateFlow<String?> = _currentPlatform
@@ -35,6 +37,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _importStatus = MutableStateFlow<String?>(null)
     val importStatus: StateFlow<String?> = _importStatus
+
+    val githubRepoUrl: StateFlow<String> = preferencesManager.githubRepoUrl
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
 
     init {
         viewModelScope.launch {
@@ -86,6 +91,44 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
             
             _isLoading.value = false
+        }
+    }
+
+    fun importFromGitHub(repoUrl: String? = null) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _importStatus.value = "Baixando do GitHub..."
+            
+            val url = repoUrl ?: githubRepoUrl.value
+            val result = githubImporter.importFromGitHub(url)
+            
+            if (result.success && result.config != null) {
+                repository.deleteAllGames()
+                
+                result.games.forEach { (platform, games) ->
+                    repository.insertGames(games)
+                }
+                
+                val configJson = Gson().toJson(result.config)
+                preferencesManager.setPlatformsJson(configJson)
+                
+                if (result.config.platforms.isNotEmpty()) {
+                    val firstPlatform = result.config.platforms[0].name
+                    preferencesManager.setCurrentPlatform(firstPlatform)
+                }
+                
+                _importStatus.value = "Banco de dados do GitHub importado com sucesso!"
+            } else {
+                _importStatus.value = "Erro ao importar do GitHub: ${result.error}"
+            }
+            
+            _isLoading.value = false
+        }
+    }
+
+    fun setGitHubRepoUrl(url: String) {
+        viewModelScope.launch {
+            preferencesManager.setGitHubRepoUrl(url)
         }
     }
 

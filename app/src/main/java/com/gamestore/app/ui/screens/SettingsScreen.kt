@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -39,9 +40,11 @@ fun SettingsScreen(
     val downloadFolder by downloadViewModel.downloadFolder.collectAsState()
     val importStatus by viewModel.importStatus.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val githubRepoUrl by viewModel.githubRepoUrl.collectAsState()
     var showPlatformDialog by remember { mutableStateOf(false) }
     var showFolderPicker by remember { mutableStateOf(false) }
     var showStoragePermissionDialog by remember { mutableStateOf(false) }
+    var showGitHubDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(importStatus) {
@@ -158,6 +161,64 @@ fun SettingsScreen(
                         Icon(Icons.Default.Folder, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Alterar Pasta de Download")
+                    }
+                }
+            }
+        }
+
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Text(
+                        text = "Repositório do GitHub",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Repositório: $githubRepoUrl",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { showGitHubDialog = true },
+                            modifier = Modifier.weight(1f),
+                            enabled = !isLoading
+                        ) {
+                            Icon(Icons.Default.Edit, contentDescription = null)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Editar")
+                        }
+                        Button(
+                            onClick = { viewModel.importFromGitHub() },
+                            modifier = Modifier.weight(1f),
+                            enabled = !isLoading
+                        ) {
+                            if (isLoading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.onPrimary
+                                )
+                            } else {
+                                Icon(Icons.Default.Sync, contentDescription = null)
+                            }
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Sincronizar")
+                        }
                     }
                 }
             }
@@ -322,6 +383,47 @@ fun SettingsScreen(
             confirmButton = {
                 TextButton(onClick = { showPlatformDialog = false }) {
                     Text("Fechar")
+                }
+            }
+        )
+    }
+
+    if (showGitHubDialog) {
+        var repoUrl by remember { mutableStateOf(githubRepoUrl) }
+        
+        AlertDialog(
+            onDismissRequest = { showGitHubDialog = false },
+            title = { Text("Editar Repositório do GitHub") },
+            text = {
+                Column {
+                    Text(
+                        text = "Digite a URL do repositório do GitHub:",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = repoUrl,
+                        onValueChange = { repoUrl = it },
+                        label = { Text("URL do Repositório") },
+                        placeholder = { Text("https://github.com/usuario/repo") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.setGitHubRepoUrl(repoUrl)
+                        showGitHubDialog = false
+                    }
+                ) {
+                    Text("Salvar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showGitHubDialog = false }) {
+                    Text("Cancelar")
                 }
             }
         )

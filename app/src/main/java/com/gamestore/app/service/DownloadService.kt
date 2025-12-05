@@ -121,6 +121,10 @@ class DownloadService : Service() {
     private fun startDownload(downloadId: String) {
         if (activeDownloads.containsKey(downloadId)) return
         
+        serviceScope.launch {
+            downloadRepository.updateStatus(downloadId, DownloadStatus.DOWNLOADING)
+        }
+        
         val job = serviceScope.launch {
             try {
                 val download = downloadRepository.getDownloadById(downloadId)
@@ -131,7 +135,6 @@ class DownloadService : Service() {
                 if (download.status == DownloadStatus.COMPLETED) return@launch
                 
                 pausedDownloads.remove(downloadId)
-                downloadRepository.updateStatus(downloadId, DownloadStatus.DOWNLOADING)
                 
                 performDownload(download)
                 

@@ -16,6 +16,8 @@ class PreferencesManager(private val context: Context) {
         val CURRENT_PLATFORM = stringPreferencesKey("current_platform")
         val PLATFORMS_JSON = stringPreferencesKey("platforms_json")
         val DOWNLOAD_FOLDER = stringPreferencesKey("download_folder")
+        val GITHUB_REPO_URL = stringPreferencesKey("github_repo_url")
+        const val DEFAULT_GITHUB_REPO = "https://github.com/deivid22srk/GameFluxerDB"
     }
 
     val currentPlatform: Flow<String?> = context.dataStore.data
@@ -33,6 +35,11 @@ class PreferencesManager(private val context: Context) {
             preferences[DOWNLOAD_FOLDER]
         }
 
+    val githubRepoUrl: Flow<String> = context.dataStore.data
+        .map { preferences ->
+            preferences[GITHUB_REPO_URL] ?: DEFAULT_GITHUB_REPO
+        }
+
     suspend fun setCurrentPlatform(platform: String) {
         context.dataStore.edit { preferences ->
             preferences[CURRENT_PLATFORM] = platform
@@ -48,6 +55,12 @@ class PreferencesManager(private val context: Context) {
     suspend fun setDownloadFolder(path: String) {
         context.dataStore.edit { preferences ->
             preferences[DOWNLOAD_FOLDER] = path
+        }
+    }
+
+    suspend fun setGitHubRepoUrl(url: String) {
+        context.dataStore.edit { preferences ->
+            preferences[GITHUB_REPO_URL] = url
         }
     }
 }
