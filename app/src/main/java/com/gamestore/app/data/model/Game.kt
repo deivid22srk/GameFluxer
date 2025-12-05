@@ -15,9 +15,9 @@ data class Game(
     val developer: String,
     val category: String,
     val platform: String,
-    val iconUrl: String,
-    val bannerUrl: String,
+    val iconUrl: String?,
+    val bannerUrl: String?,
     val screenshots: String,
     val downloadUrl: String,
-    val releaseDate: String
+    val releaseDate: String?
 )

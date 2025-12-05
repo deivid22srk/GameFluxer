@@ -14,9 +14,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.gamestore.app.util.PermissionHelper
 
 @Composable
@@ -24,33 +27,48 @@ fun PermissionScreen(
     onPermissionsGranted: () -> Unit
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     var hasStoragePermission by remember { mutableStateOf(PermissionHelper.hasStoragePermission(context)) }
     var hasNotificationPermission by remember { mutableStateOf(PermissionHelper.hasNotificationPermission(context)) }
 
-    val storagePermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) {
-        hasStoragePermission = PermissionHelper.hasStoragePermission(context)
-        if (hasStoragePermission && (hasNotificationPermission || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU)) {
+    fun checkPermissions() {
+        val storage = PermissionHelper.hasStoragePermission(context)
+        val notification = PermissionHelper.hasNotificationPermission(context)
+        hasStoragePermission = storage
+        hasNotificationPermission = notification
+        
+        if (storage && (notification || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU)) {
             onPermissionsGranted()
         }
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                checkPermissions()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    val storageSettingsLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) {
+        checkPermissions()
     }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         hasNotificationPermission = isGranted
-        if (hasStoragePermission && (hasNotificationPermission || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU)) {
-            onPermissionsGranted()
-        }
+        checkPermissions()
     }
 
     LaunchedEffect(Unit) {
-        hasStoragePermission = PermissionHelper.hasStoragePermission(context)
-        hasNotificationPermission = PermissionHelper.hasNotificationPermission(context)
-        if (hasStoragePermission && (hasNotificationPermission || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU)) {
-            onPermissionsGranted()
-        }
+        checkPermissions()
     }
 
     Column(
@@ -177,8 +195,15 @@ fun PermissionScreen(
         if (!hasStoragePermission) {
             Button(
                 onClick = {
-                    if (context is Activity) {
-                        PermissionHelper.requestStoragePermission(context)
+                    if (context is Activity && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        try {
+                            val intent = Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
+                            intent.data = android.net.Uri.parse("package:${context.packageName}")
+                            storageSettingsLauncher.launch(intent)
+                        } catch (e: Exception) {
+                            val intent = Intent(android.provider.Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+                            storageSettingsLauncher.launch(intent)
+                        }
                     }
                 },
                 modifier = Modifier.fillMaxWidth()
@@ -194,6 +219,15 @@ fun PermissionScreen(
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            OutlinedButton(
+                onClick = { checkPermissions() },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Verificar Novamente")
+            }
         } else if (!hasNotificationPermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             Button(
                 onClick = {

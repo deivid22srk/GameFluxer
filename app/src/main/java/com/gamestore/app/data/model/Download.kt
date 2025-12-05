@@ -9,7 +9,7 @@ data class Download(
     val id: String,
     val gameId: String,
     val gameName: String,
-    val gameIconUrl: String,
+    val gameIconUrl: String?,
     val url: String,
     val filePath: String,
     val totalBytes: Long = 0L,

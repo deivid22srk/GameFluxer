@@ -8,7 +8,7 @@ import androidx.room.TypeConverters
 import com.gamestore.app.data.model.Download
 import com.gamestore.app.data.model.Game
 
-@Database(entities = [Game::class, Download::class], version = 3, exportSchema = false)
+@Database(entities = [Game::class, Download::class], version = 4, exportSchema = false)
 @TypeConverters(Converters::class)
 abstract class GameDatabase : RoomDatabase() {
     abstract fun gameDao(): GameDao
