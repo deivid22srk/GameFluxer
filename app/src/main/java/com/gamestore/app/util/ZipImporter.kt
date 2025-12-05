@@ -43,11 +43,15 @@ class ZipImporter(private val context: Context) {
             val extractedFiles = tempDir.listFiles()
             Log.d(TAG, "Extracted files: ${extractedFiles?.map { it.name }?.joinToString()}")
 
-            val configFile = File(tempDir, "config.json")
-            if (!configFile.exists()) {
-                Log.e(TAG, "config.json not found in ZIP")
-                return ImportResult(false, error = "config.json não encontrado no arquivo ZIP")
+            val configFile = findConfigFile(tempDir)
+            if (configFile == null || !configFile.exists()) {
+                Log.e(TAG, "config.json not found in ZIP. Searched in: ${tempDir.absolutePath}")
+                listAllFiles(tempDir)
+                return ImportResult(false, error = "config.json não encontrado no arquivo ZIP. Verifique se o arquivo está na raiz do ZIP.")
             }
+
+            Log.d(TAG, "Found config.json at: ${configFile.absolutePath}")
+            val baseDir = configFile.parentFile ?: tempDir
 
             val configJson = configFile.readText()
             Log.d(TAG, "Config JSON: $configJson")
@@ -56,7 +60,7 @@ class ZipImporter(private val context: Context) {
             val gamesMap = mutableMapOf<String, List<Game>>()
             
             config.platforms.forEach { platform ->
-                val dbFile = File(tempDir, platform.databasePath)
+                val dbFile = File(baseDir, platform.databasePath)
                 Log.d(TAG, "Looking for database: ${platform.databasePath} at ${dbFile.absolutePath}")
                 if (dbFile.exists()) {
                     val gamesJson = dbFile.readText()
@@ -84,12 +88,36 @@ class ZipImporter(private val context: Context) {
         }
     }
 
+    private fun findConfigFile(directory: File): File? {
+        directory.listFiles()?.forEach { file ->
+            if (file.isFile && file.name == "config.json") {
+                return file
+            } else if (file.isDirectory) {
+                val found = findConfigFile(file)
+                if (found != null) return found
+            }
+        }
+        return null
+    }
+
+    private fun listAllFiles(directory: File, prefix: String = "") {
+        directory.listFiles()?.forEach { file ->
+            if (file.isDirectory) {
+                Log.d(TAG, "$prefix[DIR] ${file.name}/")
+                listAllFiles(file, "$prefix  ")
+            } else {
+                Log.d(TAG, "$prefix[FILE] ${file.name} (${file.length()} bytes)")
+            }
+        }
+    }
+
     private fun extractZip(inputStream: InputStream, targetDir: File) {
         ZipInputStream(BufferedInputStream(inputStream)).use { zipInputStream ->
             var entry = zipInputStream.nextEntry
             while (entry != null) {
-                val file = File(targetDir, entry.name)
-                Log.d(TAG, "Extracting: ${entry.name}")
+                val entryName = entry.name.replace("\\", "/")
+                val file = File(targetDir, entryName)
+                Log.d(TAG, "Extracting: $entryName")
                 if (entry.isDirectory) {
                     file.mkdirs()
                 } else {
