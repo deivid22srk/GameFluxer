@@ -73,7 +73,6 @@ class DownloadViewModel(application: Application) : AndroidViewModel(application
                         val goFileInfo = GoFileExtractor.extractDirectDownloadLinkWithRetry(game.downloadUrl)
                         if (goFileInfo != null) {
                             downloadUrl = goFileInfo.url
-                            // Serializa os headers para String (formato: key1:value1|key2:value2)
                             customHeaders = goFileInfo.headers.entries.joinToString("|") { "${it.key}:${it.value}" }
                         }
                     }
@@ -136,13 +135,7 @@ class DownloadViewModel(application: Application) : AndroidViewModel(application
     }
 
     private fun getDefaultDownloadFolder(): String {
-        val context = getApplication<Application>()
-        val externalDir = context.getExternalFilesDir(null)
-        return if (externalDir != null) {
-            externalDir.absolutePath + "/downloads"
-        } else {
-            context.filesDir.absolutePath + "/downloads"
-        }
+        return "/storage/emulated/0/GameFluxer"
     }
 
     private fun sanitizeFileName(name: String): String {

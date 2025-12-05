@@ -201,6 +201,8 @@ class DownloadService : Service() {
         try {
             val file = File(download.filePath)
             file.parentFile?.mkdirs()
+            
+            val existingBytes = if (file.exists()) file.length() else 0L
 
             // Debug log
             DownloadDebugHelper.logDownloadStart(download.url, download.customHeaders != null)
@@ -223,7 +225,6 @@ class DownloadService : Service() {
                 connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36")
             }
             
-            val existingBytes = if (file.exists()) file.length() else 0L
             if (existingBytes > 0) {
                 connection.setRequestProperty("Range", "bytes=$existingBytes-")
             }

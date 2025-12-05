@@ -4,6 +4,7 @@ import android.app.Application
 import com.gamestore.app.data.local.GameDatabase
 import com.gamestore.app.data.preferences.PreferencesManager
 import com.gamestore.app.data.repository.GameRepository
+import java.io.File
 
 class GameStoreApplication : Application() {
     lateinit var repository: GameRepository
@@ -14,5 +15,19 @@ class GameStoreApplication : Application() {
         val database = GameDatabase.getDatabase(this)
         repository = GameRepository(database.gameDao())
         preferencesManager = PreferencesManager(this)
+        
+        // Cria a pasta padrão de downloads
+        createDefaultDownloadFolder()
+    }
+    
+    private fun createDefaultDownloadFolder() {
+        try {
+            val defaultFolder = File("/storage/emulated/0/GameFluxer")
+            if (!defaultFolder.exists()) {
+                defaultFolder.mkdirs()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }

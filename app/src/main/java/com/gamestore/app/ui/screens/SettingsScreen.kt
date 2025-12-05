@@ -1,7 +1,10 @@
 package com.gamestore.app.ui.screens
 
+import android.Manifest
 import android.app.Activity
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -17,7 +20,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.gamestore.app.ui.components.FolderPickerDialog
 import com.gamestore.app.ui.viewmodel.DownloadViewModel
 import com.gamestore.app.ui.viewmodel.MainViewModel
 
@@ -31,6 +36,16 @@ fun SettingsScreen(
     val platforms by viewModel.platforms.collectAsState()
     val downloadFolder by downloadViewModel.downloadFolder.collectAsState()
     var showPlatformDialog by remember { mutableStateOf(false) }
+    var showFolderPicker by remember { mutableStateOf(false) }
+    var showStoragePermissionDialog by remember { mutableStateOf(false) }
+
+    val storagePermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            showFolderPicker = true
+        }
+    }
 
     val databaseLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -39,15 +54,6 @@ fun SettingsScreen(
             result.data?.data?.let { uri ->
                 viewModel.importDatabase(uri)
             }
-        }
-    }
-
-    val folderLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocumentTree()
-    ) { uri ->
-        uri?.let {
-            val path = it.path ?: return@let
-            downloadViewModel.setDownloadFolder(path)
         }
     }
 
@@ -110,13 +116,30 @@ fun SettingsScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = downloadFolder ?: "Padrão (Armazenamento interno)",
+                        text = downloadFolder ?: "/storage/emulated/0/GameFluxer (Padrão)",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     OutlinedButton(
-                        onClick = { folderLauncher.launch(null) },
+                        onClick = { 
+                            // Verifica permissão de storage
+                            when {
+                                Build.VERSION.SDK_INT >= Build.VERSION_CODES.R -> {
+                                    // Android 11+ - não precisa de permissão runtime para pasta pública
+                                    showFolderPicker = true
+                                }
+                                ContextCompat.checkSelfPermission(
+                                    context,
+                                    Manifest.permission.WRITE_EXTERNAL_STORAGE
+                                ) == PackageManager.PERMISSION_GRANTED -> {
+                                    showFolderPicker = true
+                                }
+                                else -> {
+                                    showStoragePermissionDialog = true
+                                }
+                            }
+                        },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(Icons.Default.Folder, contentDescription = null)
@@ -189,6 +212,42 @@ fun SettingsScreen(
                 }
             }
         }
+    }
+
+    if (showStoragePermissionDialog) {
+        AlertDialog(
+            onDismissRequest = { showStoragePermissionDialog = false },
+            title = { Text("Permissão necessária") },
+            text = { Text("O app precisa de permissão para acessar o armazenamento e salvar os downloads.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showStoragePermissionDialog = false
+                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+                            storagePermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                        }
+                    }
+                ) {
+                    Text("Permitir")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showStoragePermissionDialog = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+
+    if (showFolderPicker) {
+        FolderPickerDialog(
+            currentPath = downloadFolder,
+            onDismiss = { showFolderPicker = false },
+            onFolderSelected = { path ->
+                downloadViewModel.setDownloadFolder(path)
+                showFolderPicker = false
+            }
+        )
     }
 
     if (showPlatformDialog) {
