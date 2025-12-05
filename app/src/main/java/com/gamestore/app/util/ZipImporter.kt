@@ -61,8 +61,9 @@ class ZipImporter(private val context: Context) {
             val gamesMap = mutableMapOf<String, List<Game>>()
             
             config.platforms.forEach { platform ->
-                val dbFile = File(baseDir, platform.databasePath)
-                Log.d(TAG, "Looking for database: ${platform.databasePath} at ${dbFile.absolutePath}")
+                val normalizedPath = platform.databasePath.replace("\\", "/")
+                val dbFile = File(baseDir, normalizedPath)
+                Log.d(TAG, "Looking for database: $normalizedPath at ${dbFile.absolutePath}")
                 if (dbFile.exists()) {
                     val gamesJson = decodeIfBase64(dbFile.readText())
                     val gameListType = object : TypeToken<List<Game>>() {}.type
