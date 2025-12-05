@@ -37,6 +37,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.gamestore.app.data.model.DownloadStatus
+import com.gamestore.app.ui.components.DownloadSourceSelectorDialog
 import com.gamestore.app.ui.viewmodel.DownloadViewModel
 import com.gamestore.app.ui.viewmodel.GameDetailViewModel
 import kotlin.math.roundToInt
@@ -51,8 +52,10 @@ fun GameDetailScreen(
     val game by viewModel.game.collectAsState()
     val context = LocalContext.current
     val download by downloadViewModel.getDownloadForGame(gameId).collectAsState(initial = null)
+    val externalDownloads by viewModel.externalDownloads.collectAsState()
     
     var showPermissionDialog by remember { mutableStateOf(false) }
+    var showSourceSelector by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -131,6 +134,19 @@ fun GameDetailScreen(
                 }
             },
             shape = RoundedCornerShape(28.dp)
+        )
+    }
+
+    if (showSourceSelector && externalDownloads.isNotEmpty()) {
+        DownloadSourceSelectorDialog(
+            gameName = game?.name ?: "",
+            matches = externalDownloads,
+            onDismiss = { showSourceSelector = false },
+            onSourceSelected = { selectedUrl ->
+                game?.let { gameData ->
+                    downloadViewModel.startDownloadWithCustomUrl(gameData, selectedUrl)
+                }
+            }
         )
     }
 
@@ -281,6 +297,31 @@ fun GameDetailScreen(
                             onResumeClick = { download?.let { downloadViewModel.resumeDownload(it.id) } },
                             onCancelClick = { download?.let { downloadViewModel.cancelDownload(it.id) } }
                         )
+
+                        if (externalDownloads.isNotEmpty() && download == null) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            
+                            OutlinedButton(
+                                onClick = { showSourceSelector = true },
+                                modifier = Modifier.fillMaxWidth().height(56.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                border = ButtonDefaults.outlinedButtonBorder.copy(
+                                    width = 2.dp
+                                )
+                            ) {
+                                Icon(
+                                    Icons.Default.CloudDownload,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    "Fontes Alternativas (${externalDownloads.size})",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
 
                         Spacer(modifier = Modifier.height(20.dp))
 

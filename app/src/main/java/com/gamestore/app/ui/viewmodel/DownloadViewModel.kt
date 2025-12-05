@@ -40,6 +40,14 @@ class DownloadViewModel(application: Application) : AndroidViewModel(application
         downloadRepository.observeDownloadByGameId(gameId)
 
     fun startDownload(game: Game) {
+        startDownloadInternal(game, null)
+    }
+    
+    fun startDownloadWithCustomUrl(game: Game, customUrl: String) {
+        startDownloadInternal(game, customUrl)
+    }
+    
+    private fun startDownloadInternal(game: Game, customUrl: String?) {
         viewModelScope.launch {
             try {
                 val existingDownload = downloadRepository.getDownloadByGameId(game.id)
@@ -58,22 +66,22 @@ class DownloadViewModel(application: Application) : AndroidViewModel(application
                     folderFile.mkdirs()
                 }
                 
-                var downloadUrl = game.downloadUrl
+                var downloadUrl = customUrl ?: game.downloadUrl
                 var customHeaders: String? = null
                 
                 when {
-                    MediaFireExtractor.isMediaFireUrl(game.downloadUrl) -> {
-                        downloadUrl = MediaFireExtractor.extractDirectDownloadLinkWithRetry(game.downloadUrl)
+                    MediaFireExtractor.isMediaFireUrl(downloadUrl) -> {
+                        downloadUrl = MediaFireExtractor.extractDirectDownloadLinkWithRetry(downloadUrl)
                     }
-                    GoFileExtractor.isGoFileUrl(game.downloadUrl) -> {
-                        val goFileInfo = GoFileExtractor.extractDirectDownloadLinkWithRetry(game.downloadUrl)
+                    GoFileExtractor.isGoFileUrl(downloadUrl) -> {
+                        val goFileInfo = GoFileExtractor.extractDirectDownloadLinkWithRetry(downloadUrl)
                         if (goFileInfo != null) {
                             downloadUrl = goFileInfo.url
                             customHeaders = goFileInfo.headers.entries.joinToString("|") { "${it.key}:${it.value}" }
                         }
                     }
-                    GoogleDriveExtractor.isGoogleDriveUrl(game.downloadUrl) -> {
-                        downloadUrl = GoogleDriveExtractor.extractDirectDownloadLinkWithRetry(game.downloadUrl)
+                    GoogleDriveExtractor.isGoogleDriveUrl(downloadUrl) -> {
+                        downloadUrl = GoogleDriveExtractor.extractDirectDownloadLinkWithRetry(downloadUrl)
                     }
                 }
                 

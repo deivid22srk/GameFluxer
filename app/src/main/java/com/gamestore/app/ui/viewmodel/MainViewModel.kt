@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.gamestore.app.GameStoreApplication
 import com.gamestore.app.data.model.DatabaseConfig
 import com.gamestore.app.data.model.Game
+import com.gamestore.app.data.model.Platform
 import com.gamestore.app.util.ZipImporter
 import com.gamestore.app.util.GitHubImporter
 import com.google.gson.Gson
@@ -40,12 +41,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     val githubRepoUrl: StateFlow<String> = preferencesManager.githubRepoUrl
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
+    
+    val customDownloadSources: StateFlow<Set<String>> = preferencesManager.customDownloadSources
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+    
+    private val _currentPlatformData = MutableStateFlow<Platform?>(null)
+    val currentPlatformData: StateFlow<Platform?> = _currentPlatformData
 
     init {
         viewModelScope.launch {
             preferencesManager.currentPlatform.collectLatest { platform ->
                 _currentPlatform.value = platform
-                platform?.let { loadGames(it) }
+                platform?.let { 
+                    loadGames(it)
+                    loadCurrentPlatformData(it)
+                }
             }
         }
 
@@ -178,5 +188,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun clearImportStatus() {
         _importStatus.value = null
+    }
+    
+    fun addCustomDownloadSource(url: String) {
+        viewModelScope.launch {
+            preferencesManager.addCustomDownloadSource(url)
+        }
+    }
+    
+    fun removeCustomDownloadSource(url: String) {
+        viewModelScope.launch {
+            preferencesManager.removeCustomDownloadSource(url)
+        }
+    }
+    
+    private fun loadCurrentPlatformData(platformName: String) {
+        viewModelScope.launch {
+            _currentPlatformData.value = app.getPlatformForGame(platformName)
+        }
     }
 }

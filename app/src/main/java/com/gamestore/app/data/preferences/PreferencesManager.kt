@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -12,55 +13,76 @@ import kotlinx.coroutines.flow.map
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
 class PreferencesManager(private val context: Context) {
+    
     companion object {
-        val CURRENT_PLATFORM = stringPreferencesKey("current_platform")
-        val PLATFORMS_JSON = stringPreferencesKey("platforms_json")
-        val DOWNLOAD_FOLDER = stringPreferencesKey("download_folder")
-        val GITHUB_REPO_URL = stringPreferencesKey("github_repo_url")
-        const val DEFAULT_GITHUB_REPO = "https://github.com/deivid22srk/GameFluxerDB"
+        private val DOWNLOAD_FOLDER_KEY = stringPreferencesKey("download_folder")
+        private val CURRENT_PLATFORM_KEY = stringPreferencesKey("current_platform")
+        private val PLATFORMS_JSON_KEY = stringPreferencesKey("platforms_json")
+        private val GITHUB_REPO_URL_KEY = stringPreferencesKey("github_repo_url")
+        private val CUSTOM_DOWNLOAD_SOURCES_KEY = stringSetPreferencesKey("custom_download_sources")
     }
-
-    val currentPlatform: Flow<String?> = context.dataStore.data
-        .map { preferences ->
-            preferences[CURRENT_PLATFORM]
-        }
-
-    val platformsJson: Flow<String?> = context.dataStore.data
-        .map { preferences ->
-            preferences[PLATFORMS_JSON]
-        }
-
-    val downloadFolder: Flow<String?> = context.dataStore.data
-        .map { preferences ->
-            preferences[DOWNLOAD_FOLDER]
-        }
-
-    val githubRepoUrl: Flow<String> = context.dataStore.data
-        .map { preferences ->
-            preferences[GITHUB_REPO_URL] ?: DEFAULT_GITHUB_REPO
-        }
-
-    suspend fun setCurrentPlatform(platform: String) {
-        context.dataStore.edit { preferences ->
-            preferences[CURRENT_PLATFORM] = platform
-        }
+    
+    val downloadFolder: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[DOWNLOAD_FOLDER_KEY]
     }
-
-    suspend fun setPlatformsJson(json: String) {
-        context.dataStore.edit { preferences ->
-            preferences[PLATFORMS_JSON] = json
-        }
+    
+    val currentPlatform: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[CURRENT_PLATFORM_KEY]
     }
-
+    
+    val platformsJson: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[PLATFORMS_JSON_KEY]
+    }
+    
+    val githubRepoUrl: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[GITHUB_REPO_URL_KEY] ?: ""
+    }
+    
+    val customDownloadSources: Flow<Set<String>> = context.dataStore.data.map { preferences ->
+        preferences[CUSTOM_DOWNLOAD_SOURCES_KEY] ?: emptySet()
+    }
+    
     suspend fun setDownloadFolder(path: String) {
         context.dataStore.edit { preferences ->
-            preferences[DOWNLOAD_FOLDER] = path
+            preferences[DOWNLOAD_FOLDER_KEY] = path
         }
     }
-
+    
+    suspend fun setCurrentPlatform(platform: String) {
+        context.dataStore.edit { preferences ->
+            preferences[CURRENT_PLATFORM_KEY] = platform
+        }
+    }
+    
+    suspend fun setPlatformsJson(json: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PLATFORMS_JSON_KEY] = json
+        }
+    }
+    
     suspend fun setGitHubRepoUrl(url: String) {
         context.dataStore.edit { preferences ->
-            preferences[GITHUB_REPO_URL] = url
+            preferences[GITHUB_REPO_URL_KEY] = url
+        }
+    }
+    
+    suspend fun addCustomDownloadSource(sourceUrl: String) {
+        context.dataStore.edit { preferences ->
+            val current = preferences[CUSTOM_DOWNLOAD_SOURCES_KEY] ?: emptySet()
+            preferences[CUSTOM_DOWNLOAD_SOURCES_KEY] = current + sourceUrl
+        }
+    }
+    
+    suspend fun removeCustomDownloadSource(sourceUrl: String) {
+        context.dataStore.edit { preferences ->
+            val current = preferences[CUSTOM_DOWNLOAD_SOURCES_KEY] ?: emptySet()
+            preferences[CUSTOM_DOWNLOAD_SOURCES_KEY] = current - sourceUrl
+        }
+    }
+    
+    suspend fun clearCustomDownloadSources() {
+        context.dataStore.edit { preferences ->
+            preferences[CUSTOM_DOWNLOAD_SOURCES_KEY] = emptySet()
         }
     }
 }

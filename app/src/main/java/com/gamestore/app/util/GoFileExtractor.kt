@@ -16,27 +16,19 @@ data class GoFileDownloadInfo(
 
 object GoFileExtractor {
 
-    private const val USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.5481.178 Safari/537.36"
+    private const val TAG = "GoFileExtractor"
+    private const val USER_AGENT = "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36"
+    private const val GOFILE_API = "https://api.gofile.io"
+    private const val GOFILE_API_ACCOUNTS = "$GOFILE_API/accounts"
     private var cachedToken: String? = null
     
-    /**
-     * Verifica se a URL é do GoFile
-     */
     fun isGoFileUrl(url: String): Boolean {
         return url.contains("gofile.io", ignoreCase = true)
     }
     
-    /**
-     * Extrai o content ID da URL do GoFile
-     * Exemplo: https://gofile.io/d/I7Y2WU -> I7Y2WU
-     */
     private fun extractContentId(url: String): String? {
         return try {
-            if (!url.split("/").contains("d")) {
-                return null
-            }
-            
-            val parts = url.split("/")
+            val parts = url.trim().trimEnd('/').split("/")
             val dIndex = parts.indexOf("d")
             if (dIndex != -1 && dIndex + 1 < parts.size) {
                 parts[dIndex + 1].split("?").firstOrNull()
@@ -44,291 +36,236 @@ object GoFileExtractor {
                 null
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "Failed to extract content ID", e)
             null
         }
     }
     
-    /**
-     * Obtém ou cria um token de acesso para a API do GoFile
-     * Segue exatamente a implementação do Python
-     */
-    private suspend fun getAccessToken(maxRetries: Int = 5): String? = withContext(Dispatchers.IO) {
-        // Retorna token em cache se disponível
-        if (cachedToken != null) {
-            return@withContext cachedToken
-        }
-        
-        var connection: HttpURLConnection? = null
+    private suspend fun createAccountToken(maxRetries: Int = 5): String? = withContext(Dispatchers.IO) {
+        cachedToken?.let { return@withContext it }
         
         repeat(maxRetries) { attempt ->
+            var connection: HttpURLConnection? = null
             try {
-                val url = URL("https://api.gofile.io/accounts")
+                Log.d(TAG, "Creating account token (attempt ${attempt + 1}/$maxRetries)")
+                
+                val url = URL(GOFILE_API_ACCOUNTS)
                 connection = url.openConnection() as HttpURLConnection
-                connection?.apply {
+                connection.apply {
                     requestMethod = "POST"
                     setRequestProperty("User-Agent", USER_AGENT)
-                    setRequestProperty("Accept-Encoding", "gzip")
-                    setRequestProperty("Connection", "keep-alive")
+                    setRequestProperty("Accept-Encoding", "gzip, deflate, br")
                     setRequestProperty("Accept", "*/*")
+                    setRequestProperty("Connection", "keep-alive")
                     connectTimeout = 15000
                     readTimeout = 15000
                     doOutput = false
                 }
                 
-                connection?.connect()
+                connection.connect()
                 
-                val responseCode = connection?.responseCode ?: 0
+                val responseCode = connection.responseCode
                 if (responseCode !in 200..299) {
-                    if (attempt < maxRetries - 1) {
-                        connection?.disconnect()
-                        return@repeat
-                    }
+                    Log.e(TAG, "Account creation failed with code: $responseCode")
+                    connection.disconnect()
+                    if (attempt < maxRetries - 1) return@repeat
                     return@withContext null
                 }
                 
-                val content = BufferedReader(InputStreamReader(connection?.inputStream)).use { reader ->
-                    reader.readText()
+                val response = BufferedReader(InputStreamReader(connection.inputStream)).use { 
+                    it.readText() 
                 }
                 
-                val jsonResponse = JSONObject(content)
+                val jsonResponse = JSONObject(response)
                 if (jsonResponse.optString("status") == "ok") {
                     val token = jsonResponse.optJSONObject("data")?.optString("token")
-                    if (token != null && token.isNotEmpty()) {
+                    if (!token.isNullOrEmpty()) {
                         cachedToken = token
+                        Log.d(TAG, "Account token created successfully: ${token.take(10)}...")
                         return@withContext token
                     }
                 }
                 
-                if (attempt < maxRetries - 1) {
-                    connection?.disconnect()
-                    return@repeat
-                }
-                
             } catch (e: Exception) {
-                e.printStackTrace()
-                if (attempt < maxRetries - 1) {
-                    connection?.disconnect()
-                    return@repeat
-                }
+                Log.e(TAG, "Exception creating account (attempt ${attempt + 1})", e)
             } finally {
-                if (attempt == maxRetries - 1) {
-                    connection?.disconnect()
-                }
+                connection?.disconnect()
             }
         }
         
         return@withContext null
     }
     
-    /**
-     * Faz requisição GET para a API do GoFile com todos os headers e cookies corretos
-     */
     private suspend fun getContentInfo(
-        contentId: String, 
-        token: String, 
+        contentId: String,
+        token: String,
         password: String? = null,
         maxRetries: Int = 5
     ): JSONObject? = withContext(Dispatchers.IO) {
-        var connection: HttpURLConnection? = null
-        
         repeat(maxRetries) { attempt ->
+            var connection: HttpURLConnection? = null
             try {
-                // URL exatamente como no Python
-                var apiUrl = "https://api.gofile.io/contents/$contentId?wt=4fd6sg89d7s6&cache=true&sortField=createTime&sortDirection=1"
+                Log.d(TAG, "Getting content info (attempt ${attempt + 1}/$maxRetries)")
                 
-                if (password != null && password.isNotEmpty()) {
+                var apiUrl = "$GOFILE_API/contents/$contentId?wt=4fd6sg89d7s6&cache=true"
+                if (!password.isNullOrEmpty()) {
                     apiUrl += "&password=$password"
                 }
                 
                 val url = URL(apiUrl)
                 connection = url.openConnection() as HttpURLConnection
-                connection?.apply {
+                connection.apply {
                     requestMethod = "GET"
-                    // Headers exatamente como no Python
                     setRequestProperty("User-Agent", USER_AGENT)
-                    setRequestProperty("Accept-Encoding", "gzip")
-                    setRequestProperty("Connection", "keep-alive")
+                    setRequestProperty("Accept-Encoding", "gzip, deflate, br")
                     setRequestProperty("Accept", "*/*")
+                    setRequestProperty("Connection", "keep-alive")
                     setRequestProperty("Authorization", "Bearer $token")
-                    // Cookie com accountToken
                     setRequestProperty("Cookie", "accountToken=$token")
                     connectTimeout = 15000
                     readTimeout = 15000
                 }
                 
-                connection?.connect()
+                connection.connect()
                 
-                val responseCode = connection?.responseCode ?: 0
+                val responseCode = connection.responseCode
                 if (responseCode !in 200..299) {
-                    if (attempt < maxRetries - 1) {
-                        connection?.disconnect()
-                        return@repeat
-                    }
+                    Log.e(TAG, "Content info failed with code: $responseCode")
+                    connection.disconnect()
+                    if (attempt < maxRetries - 1) return@repeat
                     return@withContext null
                 }
                 
-                val content = BufferedReader(InputStreamReader(connection?.inputStream)).use { reader ->
-                    reader.readText()
+                val response = BufferedReader(InputStreamReader(connection.inputStream)).use {
+                    it.readText()
                 }
                 
-                val jsonResponse = JSONObject(content)
-                return@withContext jsonResponse
+                Log.d(TAG, "Content info response received")
+                return@withContext JSONObject(response)
                 
             } catch (e: Exception) {
-                e.printStackTrace()
-                if (attempt < maxRetries - 1) {
-                    connection?.disconnect()
-                    return@repeat
-                }
+                Log.e(TAG, "Exception getting content info (attempt ${attempt + 1})", e)
             } finally {
-                if (attempt == maxRetries - 1) {
-                    connection?.disconnect()
-                }
+                connection?.disconnect()
             }
         }
         
         return@withContext null
     }
     
-    /**
-     * Extrai o link de download direto do GoFile com headers necessários
-     * Segue a lógica exata do Python mantendo a sessão
-     * @param url URL da página do GoFile (ex: https://gofile.io/d/I7Y2WU)
-     * @param password Senha opcional se o conteúdo for protegido
-     * @return GoFileDownloadInfo com URL e headers ou null se falhar
-     */
     suspend fun extractDirectDownloadLink(url: String, password: String? = null): GoFileDownloadInfo? = withContext(Dispatchers.IO) {
         try {
-            Log.d("GoFileExtractor", "Extracting download link from: $url")
+            Log.d(TAG, "Starting extraction from: $url")
             
-            // Extrai content ID
             val contentId = extractContentId(url)
-            if (contentId == null) {
-                Log.e("GoFileExtractor", "Failed to extract content ID from URL")
+            if (contentId.isNullOrEmpty()) {
+                Log.e(TAG, "Failed to extract content ID")
                 return@withContext null
             }
-            Log.d("GoFileExtractor", "Content ID: $contentId")
+            Log.d(TAG, "Content ID: $contentId")
             
-            // Obtém token de acesso
-            val token = getAccessToken()
-            if (token == null) {
-                Log.e("GoFileExtractor", "Failed to get access token")
+            val token = createAccountToken()
+            if (token.isNullOrEmpty()) {
+                Log.e(TAG, "Failed to get account token")
                 return@withContext null
             }
-            Log.d("GoFileExtractor", "Got token: ${token.take(10)}...")
             
-            // Faz requisição para API
             val jsonResponse = getContentInfo(contentId, token, password)
-            if (jsonResponse == null || jsonResponse.optString("status") != "ok") {
-                Log.e("GoFileExtractor", "Failed to get content info or status not ok")
+            if (jsonResponse == null) {
+                Log.e(TAG, "Failed to get content info")
                 return@withContext null
             }
-            Log.d("GoFileExtractor", "API Response status: ok")
+            
+            if (jsonResponse.optString("status") != "ok") {
+                Log.e(TAG, "API status not ok")
+                return@withContext null
+            }
             
             val data = jsonResponse.optJSONObject("data")
             if (data == null) {
+                Log.e(TAG, "No data in response")
                 return@withContext null
             }
             
-            // Verifica se precisa de senha
             if (data.has("password") && data.has("passwordStatus")) {
                 val passwordStatus = data.optString("passwordStatus")
-                if (passwordStatus != "passwordOk") {
+                if (passwordStatus != "passwordOk" && !password.isNullOrEmpty()) {
+                    Log.e(TAG, "Password required or incorrect")
                     return@withContext null
                 }
             }
             
-            val contentType = data.optString("type")
-            Log.d("GoFileExtractor", "Content type: $contentType")
-            
-            // Cria os headers necessários para o download (mantém a sessão)
-            // Inclui o Referer que o GoFile pode verificar
-            val downloadHeaders = mapOf(
+            val headers = mutableMapOf(
                 "User-Agent" to USER_AGENT,
-                "Accept-Encoding" to "gzip",
-                "Connection" to "keep-alive",
+                "Accept-Encoding" to "gzip, deflate, br",
                 "Accept" to "*/*",
-                "Authorization" to "Bearer $token",
-                "Cookie" to "accountToken=$token",
-                "Referer" to "https://gofile.io/",
-                "Origin" to "https://gofile.io"
+                "Connection" to "keep-alive",
+                "Cookie" to "accountToken=$token"
             )
             
-            // Se for um arquivo único (não é folder)
-            if (contentType != "folder") {
-                val directLink = data.optString("link")
-                Log.d("GoFileExtractor", "Single file - Direct link: $directLink")
-                if (directLink.isNotEmpty()) {
-                    return@withContext GoFileDownloadInfo(directLink, downloadHeaders)
-                }
-                Log.e("GoFileExtractor", "Direct link is empty for single file")
-                return@withContext null
-            }
+            val contentType = data.optString("type")
+            Log.d(TAG, "Content type: $contentType")
             
-            // Se for uma pasta, pega o primeiro arquivo
-            if (contentType == "folder") {
-                val children = data.optJSONObject("children")
-                Log.d("GoFileExtractor", "Folder - Children count: ${children?.length() ?: 0}")
-                if (children != null && children.length() > 0) {
-                    // Itera pelos filhos para encontrar o primeiro arquivo
-                    val keys = children.keys()
-                    while (keys.hasNext()) {
-                        val key = keys.next()
-                        val child = children.optJSONObject(key)
-                        if (child != null) {
-                            val childType = child.optString("type")
-                            val childName = child.optString("name")
-                            Log.d("GoFileExtractor", "Child: $childName, type: $childType")
-                            // Se for arquivo (não é folder), retorna o link com headers
-                            if (childType == "file" || childType != "folder") {
+            when (contentType) {
+                "file" -> {
+                    val directLink = data.optString("link")
+                    if (directLink.isNotEmpty()) {
+                        Log.d(TAG, "Direct link found: $directLink")
+                        val downloadUrl = if (directLink.startsWith("http")) directLink else "https:$directLink"
+                        headers["Referer"] = downloadUrl
+                        return@withContext GoFileDownloadInfo(downloadUrl, headers)
+                    }
+                }
+                "folder" -> {
+                    val children = data.optJSONObject("children")
+                    if (children != null && children.length() > 0) {
+                        Log.d(TAG, "Folder with ${children.length()} children")
+                        
+                        val keys = children.keys()
+                        while (keys.hasNext()) {
+                            val key = keys.next()
+                            val child = children.optJSONObject(key)
+                            if (child != null && child.optString("type") == "file") {
                                 val directLink = child.optString("link")
-                                Log.d("GoFileExtractor", "Found file - Direct link: $directLink")
                                 if (directLink.isNotEmpty()) {
-                                    return@withContext GoFileDownloadInfo(directLink, downloadHeaders)
+                                    Log.d(TAG, "File in folder found: $directLink")
+                                    val downloadUrl = if (directLink.startsWith("http")) directLink else "https:$directLink"
+                                    headers["Referer"] = downloadUrl
+                                    return@withContext GoFileDownloadInfo(downloadUrl, headers)
                                 }
                             }
                         }
                     }
                 }
-                Log.e("GoFileExtractor", "No valid file found in folder")
             }
             
+            Log.e(TAG, "No download link found")
             return@withContext null
             
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "Exception in extraction", e)
             return@withContext null
         }
     }
     
-    /**
-     * Extrai o link de download direto com retry
-     * @param url URL da página do GoFile
-     * @param password Senha opcional
-     * @param maxRetries Número máximo de tentativas
-     * @return GoFileDownloadInfo ou null se falhar (retorna null para usar URL original sem headers)
-     */
     suspend fun extractDirectDownloadLinkWithRetry(
-        url: String, 
+        url: String,
         password: String? = null,
         maxRetries: Int = 3
     ): GoFileDownloadInfo? {
         repeat(maxRetries) { attempt ->
             try {
-                val downloadInfo = extractDirectDownloadLink(url, password)
-                if (downloadInfo != null) {
-                    return downloadInfo
+                Log.d(TAG, "Extraction attempt ${attempt + 1}/$maxRetries")
+                val result = extractDirectDownloadLink(url, password)
+                if (result != null) {
+                    return result
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
-                if (attempt == maxRetries - 1) {
-                    return null
-                }
+                Log.e(TAG, "Retry attempt ${attempt + 1} failed", e)
             }
         }
         
-        // Retorna null se falhar (deixa usar URL original sem headers especiais)
+        Log.e(TAG, "All extraction attempts failed")
         return null
     }
 }

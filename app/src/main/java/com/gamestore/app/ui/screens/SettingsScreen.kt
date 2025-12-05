@@ -33,6 +33,8 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.gamestore.app.ui.components.FolderPickerDialog
+import com.gamestore.app.ui.components.ExtendedDownloadSourcesDialog
+import com.gamestore.app.ui.components.ExtendedDownloadSourcesSection
 import com.gamestore.app.ui.viewmodel.DownloadViewModel
 import com.gamestore.app.ui.viewmodel.MainViewModel
 
@@ -48,10 +50,14 @@ fun SettingsScreen(
     val importStatus by viewModel.importStatus.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val githubRepoUrl by viewModel.githubRepoUrl.collectAsState()
+    val customDownloadSources by viewModel.customDownloadSources.collectAsState()
+    val currentPlatformData by viewModel.currentPlatformData.collectAsState()
+    
     var showPlatformDialog by remember { mutableStateOf(false) }
     var showFolderPicker by remember { mutableStateOf(false) }
     var showStoragePermissionDialog by remember { mutableStateOf(false) }
     var showGitHubDialog by remember { mutableStateOf(false) }
+    var showSourcesDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(importStatus) {
@@ -307,6 +313,15 @@ fun SettingsScreen(
                         }
                     }
                 }
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                ExtendedDownloadSourcesSection(
+                    platform = currentPlatformData,
+                    customSources = customDownloadSources,
+                    onManageSources = { showSourcesDialog = true }
+                )
             }
 
             item {
@@ -622,6 +637,16 @@ fun SettingsScreen(
                 }
             },
             shape = RoundedCornerShape(28.dp)
+        )
+    }
+    
+    if (showSourcesDialog) {
+        ExtendedDownloadSourcesDialog(
+            platform = currentPlatformData,
+            customSources = customDownloadSources,
+            onDismiss = { showSourcesDialog = false },
+            onAddSource = { url -> viewModel.addCustomDownloadSource(url) },
+            onRemoveSource = { url -> viewModel.removeCustomDownloadSource(url) }
         )
     }
 }
