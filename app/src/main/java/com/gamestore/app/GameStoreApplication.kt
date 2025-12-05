@@ -1,8 +1,6 @@
 package com.gamestore.app
 
 import android.app.Application
-import com.chaquo.python.Python
-import com.chaquo.python.android.AndroidPlatform
 import com.gamestore.app.data.local.GameDatabase
 import com.gamestore.app.data.model.DatabaseConfig
 import com.gamestore.app.data.model.Platform
@@ -19,15 +17,11 @@ class GameStoreApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        
-        if (!Python.isStarted()) {
-            Python.start(AndroidPlatform(this))
-        }
-        
         val database = GameDatabase.getDatabase(this)
         repository = GameRepository(database.gameDao())
         preferencesManager = PreferencesManager(this)
         
+        // Cria a pasta padrão de downloads
         createDefaultDownloadFolder()
     }
     
