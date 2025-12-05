@@ -19,6 +19,20 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+        
+        ndk {
+            abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64"))
+        }
+        
+        externalNativeBuild {
+            cmake {
+                cppFlags += "-std=c++17 -O3 -ffast-math -Wall -Wextra"
+                arguments += listOf(
+                    "-DANDROID_STL=c++_shared",
+                    "-DANDROID_PLATFORM=android-24"
+                )
+            }
+        }
     }
 
     buildTypes {
@@ -47,6 +61,13 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
+    
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.18.1"
         }
     }
 }

@@ -8,8 +8,7 @@ import com.gamestore.app.GameStoreApplication
 import com.gamestore.app.data.model.DatabaseConfig
 import com.gamestore.app.data.model.Game
 import com.gamestore.app.data.model.Platform
-import com.gamestore.app.util.ZipImporter
-import com.gamestore.app.util.GitHubImporter
+import com.gamestore.app.util.NativeImporter
 import com.google.gson.Gson
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -18,8 +17,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as GameStoreApplication
     private val repository = app.repository
     private val preferencesManager = app.preferencesManager
-    private val zipImporter = ZipImporter(application)
-    private val githubImporter = GitHubImporter(application)
+    private val nativeImporter = NativeImporter(application)
 
     private val _currentPlatform = MutableStateFlow<String?>(null)
     val currentPlatform: StateFlow<String?> = _currentPlatform
@@ -76,9 +74,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun importDatabase(uri: Uri) {
         viewModelScope.launch {
             _isLoading.value = true
-            _importStatus.value = null
+            _importStatus.value = "Importando com C++ nativo para máxima performance..."
             
-            val result = zipImporter.importZipFile(uri)
+            val result = nativeImporter.importFromZip(uri)
             
             if (result.success && result.config != null) {
                 repository.deleteAllGames()
@@ -95,7 +93,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     preferencesManager.setCurrentPlatform(firstPlatform)
                 }
                 
-                _importStatus.value = "Banco de dados importado com sucesso"
+                _importStatus.value = "✓ Banco de dados importado com sucesso usando C++ nativo!"
             } else {
                 _importStatus.value = "Erro ao importar: ${result.error}"
             }
@@ -107,10 +105,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun importFromGitHub(repoUrl: String? = null) {
         viewModelScope.launch {
             _isLoading.value = true
-            _importStatus.value = "Baixando do GitHub..."
+            _importStatus.value = "Baixando do GitHub com C++ nativo..."
             
             val url = repoUrl ?: githubRepoUrl.value
-            val result = githubImporter.importFromGitHub(url)
+            val result = nativeImporter.importFromGitHub(url)
             
             if (result.success && result.config != null) {
                 repository.deleteAllGames()
@@ -127,7 +125,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     preferencesManager.setCurrentPlatform(firstPlatform)
                 }
                 
-                _importStatus.value = "Banco de dados do GitHub importado com sucesso!"
+                _importStatus.value = "✓ Banco de dados do GitHub importado com C++ nativo - Máxima performance!"
             } else {
                 _importStatus.value = "Erro ao importar do GitHub: ${result.error}"
             }
