@@ -9,20 +9,27 @@ import android.os.Environment
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import com.gamestore.app.util.PermissionHelper
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.gamestore.app.ui.components.FolderPickerDialog
@@ -85,69 +92,114 @@ fun SettingsScreen(
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f),
+                            MaterialTheme.colorScheme.surface,
+                            MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.1f)
+                        )
+                    )
+                ),
+            contentPadding = PaddingValues(bottom = 16.dp)
         ) {
-        item {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp)
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            brush = Brush.verticalGradient(
+                                colors = listOf(
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                    MaterialTheme.colorScheme.surface.copy(alpha = 0f)
+                                )
+                            )
+                        )
+                        .padding(20.dp)
                 ) {
-                    Text(
-                        text = "Plataforma",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Plataforma Atual: ${currentPlatform ?: "Nenhuma"}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(
-                        onClick = { showPlatformDialog = true },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = platforms.isNotEmpty()
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.PhoneAndroid, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Trocar Plataforma")
+                        Box(
+                            modifier = Modifier
+                                .size(56.dp)
+                                .background(
+                                    brush = Brush.linearGradient(
+                                        colors = listOf(
+                                            MaterialTheme.colorScheme.primary,
+                                            MaterialTheme.colorScheme.tertiary
+                                        )
+                                    ),
+                                    shape = RoundedCornerShape(16.dp)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Settings,
+                                contentDescription = null,
+                                modifier = Modifier.size(28.dp),
+                                tint = MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column {
+                            Text(
+                                text = "Configurações",
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Black,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                            Text(
+                                text = "Personalize sua experiência",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }
-        }
 
-        item {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp)
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                SettingCard(
+                    icon = Icons.Default.PhoneAndroid,
+                    title = "Plataforma",
+                    subtitle = currentPlatform ?: "Nenhuma plataforma selecionada",
+                    gradient = listOf(
+                        MaterialTheme.colorScheme.primaryContainer,
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+                    ),
+                    iconTint = MaterialTheme.colorScheme.primary
                 ) {
-                    Text(
-                        text = "Downloads",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Pasta de Download:",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = downloadFolder ?: "/storage/emulated/0/GameFluxer (Padrão)",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(
+                        onClick = { showPlatformDialog = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = platforms.isNotEmpty(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary
+                        )
+                    ) {
+                        Icon(Icons.Default.SwapHoriz, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Trocar Plataforma", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            item {
+                SettingCard(
+                    icon = Icons.Default.Folder,
+                    title = "Pasta de Downloads",
+                    subtitle = downloadFolder ?: "/storage/emulated/0/GameFluxer (Padrão)",
+                    gradient = listOf(
+                        MaterialTheme.colorScheme.secondaryContainer,
+                        MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f)
+                    ),
+                    iconTint = MaterialTheme.colorScheme.secondary
+                ) {
                     OutlinedButton(
                         onClick = { 
                             if (PermissionHelper.hasStoragePermission(context)) {
@@ -156,39 +208,28 @@ fun SettingsScreen(
                                 showStoragePermissionDialog = true
                             }
                         },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        border = ButtonDefaults.outlinedButtonBorder.copy(width = 2.dp)
                     ) {
-                        Icon(Icons.Default.Folder, contentDescription = null)
+                        Icon(Icons.Default.Edit, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Alterar Pasta de Download")
+                        Text("Alterar Pasta", fontWeight = FontWeight.Bold)
                     }
                 }
             }
-        }
 
-        item {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp)
+            item {
+                SettingCard(
+                    icon = Icons.Default.CloudSync,
+                    title = "Repositório do GitHub",
+                    subtitle = githubRepoUrl.take(50) + if (githubRepoUrl.length > 50) "..." else "",
+                    gradient = listOf(
+                        MaterialTheme.colorScheme.tertiaryContainer,
+                        MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.7f)
+                    ),
+                    iconTint = MaterialTheme.colorScheme.tertiary
                 ) {
-                    Text(
-                        text = "Repositório do GitHub",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Repositório: $githubRepoUrl",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -196,49 +237,49 @@ fun SettingsScreen(
                         OutlinedButton(
                             onClick = { showGitHubDialog = true },
                             modifier = Modifier.weight(1f),
-                            enabled = !isLoading
+                            enabled = !isLoading,
+                            shape = RoundedCornerShape(12.dp)
                         ) {
-                            Icon(Icons.Default.Edit, contentDescription = null)
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Editar")
+                            Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Editar", fontWeight = FontWeight.Bold)
                         }
                         Button(
                             onClick = { viewModel.importFromGitHub() },
                             modifier = Modifier.weight(1f),
-                            enabled = !isLoading
+                            enabled = !isLoading,
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.tertiary
+                            )
                         ) {
                             if (isLoading) {
                                 CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
+                                    modifier = Modifier.size(18.dp),
                                     strokeWidth = 2.dp,
-                                    color = MaterialTheme.colorScheme.onPrimary
+                                    color = MaterialTheme.colorScheme.onTertiary
                                 )
                             } else {
-                                Icon(Icons.Default.Sync, contentDescription = null)
+                                Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(18.dp))
                             }
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Sincronizar")
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Sincronizar", fontWeight = FontWeight.Bold)
                         }
                     }
                 }
             }
-        }
 
-        item {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp)
+            item {
+                SettingCard(
+                    icon = Icons.Default.Storage,
+                    title = "Banco de Dados",
+                    subtitle = "Importar ou atualizar catálogo de jogos",
+                    gradient = listOf(
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                    ),
+                    iconTint = MaterialTheme.colorScheme.primary
                 ) {
-                    Text(
-                        text = "Banco de Dados",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
                     OutlinedButton(
                         onClick = {
                             val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
@@ -248,54 +289,87 @@ fun SettingsScreen(
                             databaseLauncher.launch(intent)
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = !isLoading
+                        enabled = !isLoading,
+                        shape = RoundedCornerShape(12.dp),
+                        border = ButtonDefaults.outlinedButtonBorder.copy(width = 2.dp)
                     ) {
                         if (isLoading) {
                             CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
+                                modifier = Modifier.size(20.dp),
                                 strokeWidth = 2.dp
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Importando...")
+                            Text("Importando...", fontWeight = FontWeight.Bold)
                         } else {
                             Icon(Icons.Default.Upload, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Importar Novo Banco de Dados")
+                            Text("Importar Banco ZIP", fontWeight = FontWeight.Bold)
                         }
                     }
                 }
             }
-        }
 
-        item {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp)
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 8.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                 ) {
-                    Text(
-                        text = "Sobre",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "GameFluxer v1.0",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Uma loja de jogos offline com suporte a múltiplas plataformas",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Column(
+                        modifier = Modifier.padding(20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .background(
+                                    MaterialTheme.colorScheme.tertiaryContainer,
+                                    shape = CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Info,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "GameFluxer",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Black,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.tertiaryContainer
+                        ) {
+                            Text(
+                                text = "v1.0",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "Loja de jogos offline com suporte a múltiplas plataformas",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 20.sp
+                        )
+                    }
                 }
             }
-        }
         }
 
         SnackbarHost(
@@ -307,18 +381,44 @@ fun SettingsScreen(
     if (showStoragePermissionDialog) {
         AlertDialog(
             onDismissRequest = { showStoragePermissionDialog = false },
-            title = { Text("Permissão necessária") },
+            icon = {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .background(
+                            MaterialTheme.colorScheme.primaryContainer,
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.Folder,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            },
+            title = { 
+                Text(
+                    "Permissão necessária",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleLarge
+                ) 
+            },
             text = { 
                 Text(
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                         "O app precisa de permissão para gerenciar todos os arquivos. Você será direcionado para as configurações."
                     } else {
                         "O app precisa de permissão para acessar o armazenamento e salvar os downloads."
-                    }
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             },
             confirmButton = {
-                TextButton(
+                Button(
                     onClick = {
                         showStoragePermissionDialog = false
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -326,16 +426,23 @@ fun SettingsScreen(
                         } else {
                             storagePermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
                         }
-                    }
+                    },
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Permitir")
+                    Icon(Icons.Default.Check, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Permitir", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showStoragePermissionDialog = false }) {
+                OutlinedButton(
+                    onClick = { showStoragePermissionDialog = false },
+                    shape = RoundedCornerShape(12.dp)
+                ) {
                     Text("Cancelar")
                 }
-            }
+            },
+            shape = RoundedCornerShape(28.dp)
         )
     }
 
@@ -353,38 +460,83 @@ fun SettingsScreen(
     if (showPlatformDialog) {
         AlertDialog(
             onDismissRequest = { showPlatformDialog = false },
-            title = { Text("Selecione a Plataforma") },
+            icon = {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .background(
+                            MaterialTheme.colorScheme.primaryContainer,
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.PhoneAndroid,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            },
+            title = { 
+                Text(
+                    "Selecione a Plataforma",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleLarge
+                ) 
+            },
             text = {
-                LazyColumn {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     items(platforms) { platform ->
-                        Row(
+                        Surface(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
                                 .clickable {
                                     viewModel.changePlatform(platform)
                                     showPlatformDialog = false
-                                }
-                                .padding(vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                                },
+                            color = if (platform == currentPlatform) 
+                                MaterialTheme.colorScheme.primaryContainer 
+                            else 
+                                MaterialTheme.colorScheme.surfaceVariant,
+                            shape = RoundedCornerShape(12.dp)
                         ) {
-                            RadioButton(
-                                selected = platform == currentPlatform,
-                                onClick = {
-                                    viewModel.changePlatform(platform)
-                                    showPlatformDialog = false
-                                }
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(text = platform)
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = platform == currentPlatform,
+                                    onClick = {
+                                        viewModel.changePlatform(platform)
+                                        showPlatformDialog = false
+                                    }
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = platform,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = if (platform == currentPlatform) FontWeight.Bold else FontWeight.Normal
+                                )
+                            }
                         }
                     }
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showPlatformDialog = false }) {
-                    Text("Fechar")
+                TextButton(
+                    onClick = { showPlatformDialog = false },
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Fechar", fontWeight = FontWeight.Bold)
                 }
-            }
+            },
+            shape = RoundedCornerShape(28.dp)
         )
     }
 
@@ -393,39 +545,159 @@ fun SettingsScreen(
         
         AlertDialog(
             onDismissRequest = { showGitHubDialog = false },
-            title = { Text("Editar Repositório do GitHub") },
+            icon = {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .background(
+                            MaterialTheme.colorScheme.tertiaryContainer,
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.Code,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.tertiary,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            },
+            title = { 
+                Text(
+                    "Editar Repositório",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleLarge
+                ) 
+            },
             text = {
                 Column {
                     Text(
                         text = "Digite a URL do repositório do GitHub:",
-                        style = MaterialTheme.typography.bodyMedium
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
                     OutlinedTextField(
                         value = repoUrl,
                         onValueChange = { repoUrl = it },
                         label = { Text("URL do Repositório") },
                         placeholder = { Text("https://github.com/usuario/repo") },
                         modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
+                        singleLine = true,
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Link,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            focusedLabelColor = MaterialTheme.colorScheme.primary
+                        )
                     )
                 }
             },
             confirmButton = {
-                TextButton(
+                Button(
                     onClick = {
                         viewModel.setGitHubRepoUrl(repoUrl)
                         showGitHubDialog = false
-                    }
+                    },
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Salvar")
+                    Icon(Icons.Default.Check, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Salvar", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showGitHubDialog = false }) {
+                OutlinedButton(
+                    onClick = { showGitHubDialog = false },
+                    shape = RoundedCornerShape(12.dp)
+                ) {
                     Text("Cancelar")
                 }
-            }
+            },
+            shape = RoundedCornerShape(28.dp)
         )
+    }
+}
+
+@Composable
+fun SettingCard(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    subtitle: String,
+    gradient: List<Color>,
+    iconTint: Color,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 8.dp),
+        shape = RoundedCornerShape(24.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    brush = Brush.verticalGradient(gradient),
+                    shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+                )
+                .padding(20.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(
+                            Color.White.copy(alpha = 0.9f),
+                            shape = RoundedCornerShape(14.dp)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        icon,
+                        contentDescription = null,
+                        tint = iconTint,
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        lineHeight = 18.sp
+                    )
+                }
+            }
+        }
+        
+        Column(
+            modifier = Modifier.padding(20.dp)
+        ) {
+            content()
+        }
     }
 }
