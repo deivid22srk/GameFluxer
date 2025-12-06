@@ -17,6 +17,10 @@ add_library(
     native_zip_importer.cpp
     native_json_parser.cpp
     native_network.cpp
+    native_http_client.cpp
+    native_file_writer.cpp
+    native_download_engine.cpp
+    native_downloader.cpp
 )
 
 find_library(log-lib log)
