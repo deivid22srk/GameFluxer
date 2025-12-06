@@ -98,7 +98,14 @@ DownloadProgress NativeDownloadEngine::getProgress(int downloadId) {
     
     auto it = activeTasks_.find(downloadId);
     if (it != activeTasks_.end() && it->second->progress) {
-        return *(it->second->progress);
+        DownloadProgress progress;
+        progress.bytesDownloaded.store(it->second->progress->bytesDownloaded.load());
+        progress.totalBytes.store(it->second->progress->totalBytes.load());
+        progress.speed.store(it->second->progress->speed.load());
+        progress.progress.store(it->second->progress->progress.load());
+        progress.state = it->second->progress->state;
+        progress.error = it->second->progress->error;
+        return progress;
     }
     
     return DownloadProgress{};

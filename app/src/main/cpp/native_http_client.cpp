@@ -1,4 +1,5 @@
 #include "native_http_client.h"
+#include "native_file_writer.h"
 #include <android/log.h>
 #include <sys/socket.h>
 #include <netdb.h>
