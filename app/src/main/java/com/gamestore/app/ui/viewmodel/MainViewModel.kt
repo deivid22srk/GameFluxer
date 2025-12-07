@@ -76,7 +76,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun importDatabase(uri: Uri) {
         viewModelScope.launch {
             _isLoading.value = true
-            _importStatus.value = "Importando banco de dados..."
+            _importStatus.value = null
             
             val result = zipImporter.importZipFile(uri)
             
@@ -95,7 +95,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     preferencesManager.setCurrentPlatform(firstPlatform)
                 }
                 
-                _importStatus.value = "✓ Banco de dados importado com sucesso!"
+                _importStatus.value = "Banco de dados importado com sucesso"
             } else {
                 _importStatus.value = "Erro ao importar: ${result.error}"
             }
@@ -109,11 +109,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _isLoading.value = true
             _importStatus.value = "Baixando do GitHub..."
             
-            val url = if (repoUrl.isNullOrBlank()) {
-                "https://github.com/deivid22srk/GameFluxerDB"
-            } else {
-                repoUrl
-            }
+            val url = repoUrl ?: githubRepoUrl.value
             val result = githubImporter.importFromGitHub(url)
             
             if (result.success && result.config != null) {
@@ -131,7 +127,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     preferencesManager.setCurrentPlatform(firstPlatform)
                 }
                 
-                _importStatus.value = "✓ Banco de dados do GitHub importado com sucesso!"
+                _importStatus.value = "Banco de dados do GitHub importado com sucesso!"
             } else {
                 _importStatus.value = "Erro ao importar do GitHub: ${result.error}"
             }

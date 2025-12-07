@@ -16,7 +16,6 @@ import com.gamestore.app.data.model.Download
 import com.gamestore.app.data.model.DownloadStatus
 import com.gamestore.app.data.repository.DownloadRepository
 import com.gamestore.app.util.DownloadDebugHelper
-import com.gamestore.app.util.NativeDownloader
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
 import kotlin.coroutines.coroutineContext
@@ -37,9 +36,7 @@ class DownloadService : Service() {
         DownloadRepository(GameDatabase.getDatabase(applicationContext).downloadDao())
     }
     
-    private val nativeDownloader = NativeDownloader()
     private val activeDownloads = mutableMapOf<String, Job>()
-    private val nativeDownloadIds = mutableMapOf<String, Int>()
     private val pausedDownloads = mutableSetOf<String>()
 
     companion object {
@@ -160,11 +157,6 @@ class DownloadService : Service() {
 
     private fun pauseDownload(downloadId: String) {
         pausedDownloads.add(downloadId)
-        
-        nativeDownloadIds[downloadId]?.let { nativeId ->
-            nativeDownloader.pauseDownload(nativeId)
-        }
-        
         activeDownloads[downloadId]?.cancel()
         activeDownloads.remove(downloadId)
         
@@ -185,20 +177,10 @@ class DownloadService : Service() {
 
     private fun resumeDownload(downloadId: String) {
         pausedDownloads.remove(downloadId)
-        
-        nativeDownloadIds[downloadId]?.let { nativeId ->
-            nativeDownloader.resumeDownload(nativeId)
-        }
-        
         startDownload(downloadId)
     }
 
     private fun cancelDownload(downloadId: String) {
-        nativeDownloadIds[downloadId]?.let { nativeId ->
-            nativeDownloader.cancelDownload(nativeId)
-            nativeDownloadIds.remove(downloadId)
-        }
-        
         activeDownloads[downloadId]?.cancel()
         activeDownloads.remove(downloadId)
         pausedDownloads.remove(downloadId)
@@ -215,80 +197,136 @@ class DownloadService : Service() {
     }
 
     private suspend fun performDownload(download: Download) {
+        var connection: HttpURLConnection? = null
+        var input: InputStream? = null
+        var output: FileOutputStream? = null
+
         try {
             val file = File(download.filePath)
             file.parentFile?.mkdirs()
             
+            val existingBytes = if (file.exists()) file.length() else 0L
+
+            // Debug log
             DownloadDebugHelper.logDownloadStart(download.url, download.customHeaders != null)
+
+            val url = URL(download.url)
+            connection = url.openConnection() as HttpURLConnection
+            connection.instanceFollowRedirects = true
+            connection.connectTimeout = 15000
+            connection.readTimeout = 15000
             
-            val callback = object : NativeDownloader.DownloadCallback {
-                override fun onProgress(bytesDownloaded: Long, totalBytes: Long, speed: Long) {
-                    serviceScope.launch {
-                        try {
-                            if (download.totalBytes == 0L && totalBytes > 0) {
-                                downloadRepository.updateDownload(download.copy(
-                                    totalBytes = totalBytes
-                                ))
-                            }
-                            
-                            downloadRepository.updateProgress(download.id, bytesDownloaded)
-                            updateNotification(
-                                download.id,
-                                download.gameName,
-                                bytesDownloaded,
-                                totalBytes,
-                                downloadSpeed = speed
-                            )
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                        }
-                    }
+            // Adiciona headers customizados se existirem (necessário para GoFile)
+            if (download.customHeaders != null) {
+                val headers = parseCustomHeaders(download.customHeaders)
+                DownloadDebugHelper.logCustomHeaders(headers)
+                headers.forEach { (key, value) ->
+                    connection.setRequestProperty(key, value)
                 }
-                
-                override fun onComplete() {
-                    serviceScope.launch {
-                        try {
-                            val currentDownload = downloadRepository.getDownloadById(download.id)
-                            currentDownload?.let {
-                                downloadRepository.updateDownload(
-                                    it.copy(status = DownloadStatus.COMPLETED)
-                                )
-                                updateNotification(
-                                    download.id,
-                                    download.gameName,
-                                    it.downloadedBytes,
-                                    it.totalBytes,
-                                    completed = true
-                                )
-                            }
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                        }
-                    }
-                }
-                
-                override fun onError(error: String) {
-                    serviceScope.launch {
-                        try {
-                            DownloadDebugHelper.logError("Native download failed for ${download.gameName}: $error", null)
-                            downloadRepository.updateStatus(download.id, DownloadStatus.FAILED)
-                            updateNotification(download.id, download.gameName, 0, 0, failed = true)
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                        }
-                    }
-                }
+            } else {
+                // Headers padrão se não houver customizados
+                connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36")
             }
             
-            val nativeDownloadId = nativeDownloader.startDownload(
-                url = download.url,
-                outputPath = download.filePath,
-                customHeaders = download.customHeaders,
-                callback = callback
-            )
+            if (existingBytes > 0) {
+                connection.setRequestProperty("Range", "bytes=$existingBytes-")
+            }
             
-            if (nativeDownloadId > 0) {
-                nativeDownloadIds[download.id] = nativeDownloadId
+            connection.connect()
+
+            val responseCode = connection.responseCode
+            val contentType = connection.contentType
+            
+            // Debug log
+            DownloadDebugHelper.logResponseInfo(responseCode, contentType, connection.contentLengthLong)
+            
+            // Verifica se está baixando HTML ao invés do arquivo
+            if (contentType?.contains("text/html", ignoreCase = true) == true) {
+                throw Exception("Server returned HTML instead of file. Response code: $responseCode")
+            }
+            
+            if (responseCode !in 200..299) {
+                throw Exception("Server returned HTTP $responseCode")
+            }
+
+            // Melhora a extração do tamanho do arquivo
+            val totalBytes = extractTotalFileSize(connection, existingBytes)
+
+            if (download.totalBytes == 0L || download.totalBytes != totalBytes) {
+                downloadRepository.updateDownload(download.copy(
+                    totalBytes = totalBytes,
+                    downloadedBytes = existingBytes
+                ))
+            }
+            
+            updateNotification(
+                download.id,
+                download.gameName,
+                existingBytes,
+                totalBytes,
+                downloadSpeed = 0
+            )
+
+            input = connection.inputStream
+            output = FileOutputStream(file, existingBytes > 0)
+
+            val buffer = ByteArray(8192)
+            var bytesRead: Int
+            var downloadedBytes = existingBytes
+            var lastUpdateTime = System.currentTimeMillis()
+            var lastDownloadedBytes = downloadedBytes
+            var downloadSpeed = 0L
+            var isFirstUpdate = true
+
+            while (coroutineContext.isActive && !pausedDownloads.contains(download.id)) {
+                bytesRead = input.read(buffer)
+                if (bytesRead == -1) break
+
+                output.write(buffer, 0, bytesRead)
+                downloadedBytes += bytesRead
+
+                val currentTime = System.currentTimeMillis()
+                val shouldUpdate = (currentTime - lastUpdateTime >= 500) || isFirstUpdate
+                
+                if (shouldUpdate) {
+                    val timeDiff = if (isFirstUpdate) 1 else (currentTime - lastUpdateTime)
+                    val bytesDiff = downloadedBytes - lastDownloadedBytes
+                    downloadSpeed = if (timeDiff > 0) (bytesDiff * 1000 / timeDiff) else 0
+                    
+                    downloadRepository.updateProgress(download.id, downloadedBytes)
+                    updateNotification(
+                        download.id,
+                        download.gameName,
+                        downloadedBytes,
+                        totalBytes,
+                        downloadSpeed = downloadSpeed
+                    )
+                    
+                    lastUpdateTime = currentTime
+                    lastDownloadedBytes = downloadedBytes
+                    isFirstUpdate = false
+                }
+            }
+
+            if (pausedDownloads.contains(download.id)) {
+                return
+            }
+
+            if (downloadedBytes >= totalBytes && totalBytes > 0) {
+                downloadRepository.updateDownload(
+                    download.copy(
+                        downloadedBytes = downloadedBytes,
+                        totalBytes = totalBytes,
+                        status = DownloadStatus.COMPLETED
+                    )
+                )
+                updateNotification(
+                    download.id,
+                    download.gameName,
+                    downloadedBytes,
+                    totalBytes,
+                    completed = true
+                )
             }
 
         } catch (e: Exception) {
@@ -296,6 +334,10 @@ class DownloadService : Service() {
             DownloadDebugHelper.logError("Download failed for ${download.gameName}", e)
             e.printStackTrace()
             throw e
+        } finally {
+            output?.close()
+            input?.close()
+            connection?.disconnect()
         }
     }
 
