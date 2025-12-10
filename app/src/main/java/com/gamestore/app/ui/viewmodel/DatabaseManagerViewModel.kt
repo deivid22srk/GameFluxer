@@ -328,6 +328,87 @@ class DatabaseManagerViewModel(application: Application) : AndroidViewModel(appl
         }
     }
     
+    fun addDatabaseToPlatform(platformName: String, databaseName: String, databasePath: String) {
+        viewModelScope.launch {
+            try {
+                val currentConfig = _currentConfig.value ?: return@launch
+                
+                val updatedPlatforms = currentConfig.platforms.map { platform ->
+                    if (platform.name == platformName) {
+                        val newDatabase = com.gamestore.app.data.model.DatabaseEntry(
+                            name = databaseName,
+                            path = databasePath
+                        )
+                        platform.copy(databases = platform.databases + newDatabase)
+                    } else {
+                        platform
+                    }
+                }
+                
+                _currentConfig.value = currentConfig.copy(platforms = updatedPlatforms)
+                _statusMessage.value = "Database '$databaseName' adicionado à plataforma '$platformName'!"
+            } catch (e: Exception) {
+                _statusMessage.value = "Erro ao adicionar database: ${e.message}"
+            }
+        }
+    }
+    
+    fun removeDatabaseFromPlatform(platformName: String, databaseName: String) {
+        viewModelScope.launch {
+            try {
+                val currentConfig = _currentConfig.value ?: return@launch
+                
+                val updatedPlatforms = currentConfig.platforms.map { platform ->
+                    if (platform.name == platformName) {
+                        platform.copy(databases = platform.databases.filter { it.name != databaseName })
+                    } else {
+                        platform
+                    }
+                }
+                
+                _currentConfig.value = currentConfig.copy(platforms = updatedPlatforms)
+                
+                val databaseKey = "$platformName:$databaseName"
+                _gamesMap.value = _gamesMap.value.filterKeys { it != databaseKey }
+                
+                _statusMessage.value = "Database '$databaseName' removido da plataforma '$platformName'!"
+            } catch (e: Exception) {
+                _statusMessage.value = "Erro ao remover database: ${e.message}"
+            }
+        }
+    }
+    
+    fun importJsonForDatabase(platformName: String, databaseName: String, uri: Uri) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                
+                val result = jsonImporter.importJsonFile(uri)
+                
+                if (result.success) {
+                    val updatedGames = _gamesMap.value.toMutableMap()
+                    
+                    val gamesWithPlatform = result.games.map { game ->
+                        game.copy(platform = "$platformName:$databaseName")
+                    }
+                    
+                    val databaseKey = "$platformName:$databaseName"
+                    updatedGames[databaseKey] = gamesWithPlatform
+                    _gamesMap.value = updatedGames
+                    
+                    _statusMessage.value = "${result.games.size} jogos importados para '$platformName - $databaseName'!"
+                } else {
+                    _statusMessage.value = result.error ?: "Erro ao importar JSON"
+                }
+                
+                _isLoading.value = false
+            } catch (e: Exception) {
+                _statusMessage.value = "Erro ao importar JSON: ${e.message}"
+                _isLoading.value = false
+            }
+        }
+    }
+    
     fun clearStatusMessage() {
         _statusMessage.value = null
     }

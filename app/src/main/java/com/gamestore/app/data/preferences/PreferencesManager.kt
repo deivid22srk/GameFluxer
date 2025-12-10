@@ -17,6 +17,7 @@ class PreferencesManager(private val context: Context) {
     companion object {
         private val DOWNLOAD_FOLDER_KEY = stringPreferencesKey("download_folder")
         private val CURRENT_PLATFORM_KEY = stringPreferencesKey("current_platform")
+        private val CURRENT_DATABASE_KEY = stringPreferencesKey("current_database")
         private val PLATFORMS_JSON_KEY = stringPreferencesKey("platforms_json")
         private val GITHUB_REPO_URL_KEY = stringPreferencesKey("github_repo_url")
         private val CUSTOM_DOWNLOAD_SOURCES_KEY = stringSetPreferencesKey("custom_download_sources")
@@ -30,6 +31,10 @@ class PreferencesManager(private val context: Context) {
     
     val currentPlatform: Flow<String?> = context.dataStore.data.map { preferences ->
         preferences[CURRENT_PLATFORM_KEY]
+    }
+    
+    val currentDatabase: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[CURRENT_DATABASE_KEY]
     }
     
     val platformsJson: Flow<String?> = context.dataStore.data.map { preferences ->
@@ -61,6 +66,12 @@ class PreferencesManager(private val context: Context) {
     suspend fun setCurrentPlatform(platform: String) {
         context.dataStore.edit { preferences ->
             preferences[CURRENT_PLATFORM_KEY] = platform
+        }
+    }
+    
+    suspend fun setCurrentDatabase(databaseName: String) {
+        context.dataStore.edit { preferences ->
+            preferences[CURRENT_DATABASE_KEY] = databaseName
         }
     }
     

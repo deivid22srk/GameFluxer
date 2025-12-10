@@ -9,7 +9,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -17,7 +16,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -31,6 +29,7 @@ import java.util.UUID
 @Composable
 fun DatabaseManagerScreen(
     onBackClick: () -> Unit,
+    onNavigateToPlatformGames: (String) -> Unit = {},
     viewModel: DatabaseManagerViewModel = viewModel()
 ) {
     val currentConfig by viewModel.currentConfig.collectAsState()
@@ -40,11 +39,7 @@ fun DatabaseManagerScreen(
     
     var showCreateDialog by remember { mutableStateOf(false) }
     var showAddPlatformDialog by remember { mutableStateOf(false) }
-    var showAddGameDialog by remember { mutableStateOf(false) }
-    var showEditGameDialog by remember { mutableStateOf(false) }
     var selectedPlatform by remember { mutableStateOf<String?>(null) }
-    var selectedGame by remember { mutableStateOf<Game?>(null) }
-    var expandedPlatform by remember { mutableStateOf<String?>(null) }
     
     val snackbarHostState = remember { SnackbarHostState() }
     
@@ -88,7 +83,13 @@ fun DatabaseManagerScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Gerenciar Banco de Dados", fontWeight = FontWeight.Bold) },
+                title = { 
+                    Text(
+                        "Gerenciar Banco de Dados", 
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleLarge
+                    ) 
+                },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Voltar")
@@ -212,9 +213,8 @@ fun DatabaseManagerScreen(
                         PlatformCard(
                             platformName = platform.name,
                             gameCount = gamesMap[platform.name]?.size ?: 0,
-                            isExpanded = expandedPlatform == platform.name,
-                            onExpandClick = {
-                                expandedPlatform = if (expandedPlatform == platform.name) null else platform.name
+                            onCardClick = {
+                                onNavigateToPlatformGames(platform.name)
                             },
                             onImportJson = {
                                 selectedPlatform = platform.name
@@ -224,22 +224,8 @@ fun DatabaseManagerScreen(
                                 }
                                 importJsonLauncher.launch(intent)
                             },
-                            onAddGame = {
-                                selectedPlatform = platform.name
-                                selectedGame = null
-                                showAddGameDialog = true
-                            },
                             onRemovePlatform = {
                                 viewModel.removePlatform(platform.name)
-                            },
-                            games = gamesMap[platform.name] ?: emptyList(),
-                            onEditGame = { game ->
-                                selectedPlatform = platform.name
-                                selectedGame = game
-                                showEditGameDialog = true
-                            },
-                            onDeleteGame = { game ->
-                                viewModel.deleteGame(platform.name, game.id)
                             }
                         )
                     }
@@ -312,27 +298,6 @@ fun DatabaseManagerScreen(
             onConfirm = { platformName ->
                 viewModel.addPlatform(platformName)
                 showAddPlatformDialog = false
-            }
-        )
-    }
-    
-    if (showAddGameDialog && selectedPlatform != null) {
-        GameEditorDialog(
-            onDismiss = { showAddGameDialog = false },
-            onConfirm = { game ->
-                viewModel.addGame(selectedPlatform!!, game)
-                showAddGameDialog = false
-            }
-        )
-    }
-    
-    if (showEditGameDialog && selectedPlatform != null && selectedGame != null) {
-        GameEditorDialog(
-            game = selectedGame,
-            onDismiss = { showEditGameDialog = false },
-            onConfirm = { game ->
-                viewModel.updateGame(selectedPlatform!!, selectedGame!!.id, game)
-                showEditGameDialog = false
             }
         )
     }
@@ -409,174 +374,97 @@ fun ActionCard(
 fun PlatformCard(
     platformName: String,
     gameCount: Int,
-    isExpanded: Boolean,
-    onExpandClick: () -> Unit,
+    onCardClick: () -> Unit,
     onImportJson: () -> Unit,
-    onAddGame: () -> Unit,
-    onRemovePlatform: () -> Unit,
-    games: List<Game>,
-    onEditGame: (Game) -> Unit,
-    onDeleteGame: (Game) -> Unit
+    onRemovePlatform: () -> Unit
 ) {
+    var showMenu by remember { mutableStateOf(false) }
+    
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onCardClick),
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onExpandClick)
-                    .background(
-                        brush = Brush.horizontalGradient(
-                            colors = listOf(
-                                MaterialTheme.colorScheme.primaryContainer,
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
-                            )
-                        )
-                    )
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    Icons.Default.PhoneAndroid,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(32.dp)
-                )
-                Spacer(modifier = Modifier.width(16.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = platformName,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "$gameCount jogos",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Icon(
-                    if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                    contentDescription = null
-                )
-            }
-            
-            if (isExpanded) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = onImportJson,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(Icons.Default.Upload, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("JSON")
-                        }
-                        Button(
-                            onClick = onAddGame,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Jogo")
-                        }
-                        OutlinedButton(
-                            onClick = onRemovePlatform,
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = MaterialTheme.colorScheme.error
-                            )
-                        ) {
-                            Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
-                        }
-                    }
-                    
-                    if (games.isNotEmpty()) {
-                        Divider(modifier = Modifier.padding(vertical = 8.dp))
-                        Text(
-                            text = "Jogos (${games.size})",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold
-                        )
-                        
-                        games.take(5).forEach { game ->
-                            GameItem(
-                                game = game,
-                                onEdit = { onEditGame(game) },
-                                onDelete = { onDeleteGame(game) }
-                            )
-                        }
-                        
-                        if (games.size > 5) {
-                            Text(
-                                text = "+ ${games.size - 5} mais jogos...",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(8.dp)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun GameItem(
-    game: Game,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .background(
+                    brush = Brush.horizontalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.primaryContainer,
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+                        )
+                    )
+                )
+                .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            Icon(
+                Icons.Default.PhoneAndroid,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(32.dp)
+            )
+            Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = game.name,
-                    style = MaterialTheme.typography.bodyLarge,
+                    text = platformName,
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "v${game.version} • ${game.size}",
-                    style = MaterialTheme.typography.bodySmall,
+                    text = "$gameCount jogos",
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            IconButton(onClick = onEdit) {
-                Icon(
-                    Icons.Default.Edit,
-                    contentDescription = "Editar",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
-                )
+            
+            Box {
+                IconButton(onClick = { showMenu = true }) {
+                    Icon(
+                        Icons.Default.MoreVert,
+                        contentDescription = "Opções",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Importar JSON") },
+                        onClick = {
+                            showMenu = false
+                            onImportJson()
+                        },
+                        leadingIcon = {
+                            Icon(Icons.Default.Upload, contentDescription = null)
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Remover Plataforma") },
+                        onClick = {
+                            showMenu = false
+                            onRemovePlatform()
+                        },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    )
+                }
             }
-            IconButton(onClick = onDelete) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Excluir",
-                    tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
+            
+            Icon(
+                Icons.Default.ChevronRight,
+                contentDescription = null
+            )
         }
     }
 }
@@ -591,14 +479,7 @@ fun CreateDatabaseDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = {
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .background(MaterialTheme.colorScheme.primaryContainer, shape = CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(28.dp))
-            }
+            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(32.dp))
         },
         title = { Text("Criar Novo Banco", fontWeight = FontWeight.Bold) },
         text = {
@@ -641,14 +522,7 @@ fun AddPlatformDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = {
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .background(MaterialTheme.colorScheme.secondaryContainer, shape = CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Default.AddCircle, contentDescription = null, modifier = Modifier.size(28.dp))
-            }
+            Icon(Icons.Default.AddCircle, contentDescription = null, modifier = Modifier.size(32.dp))
         },
         title = { Text("Adicionar Plataforma", fontWeight = FontWeight.Bold) },
         text = {
@@ -671,160 +545,6 @@ fun AddPlatformDialog(
                 enabled = platformName.isNotBlank()
             ) {
                 Text("Adicionar")
-            }
-        },
-        dismissButton = {
-            OutlinedButton(onClick = onDismiss) {
-                Text("Cancelar")
-            }
-        }
-    )
-}
-
-@Composable
-fun GameEditorDialog(
-    game: Game? = null,
-    onDismiss: () -> Unit,
-    onConfirm: (Game) -> Unit
-) {
-    var name by remember { mutableStateOf(game?.name ?: "") }
-    var description by remember { mutableStateOf(game?.description ?: "") }
-    var version by remember { mutableStateOf(game?.version ?: "1.0") }
-    var size by remember { mutableStateOf(game?.size ?: "") }
-    var rating by remember { mutableStateOf(game?.rating?.toString() ?: "0.0") }
-    var developer by remember { mutableStateOf(game?.developer ?: "") }
-    var category by remember { mutableStateOf(game?.category ?: "") }
-    var iconUrl by remember { mutableStateOf(game?.iconUrl ?: "") }
-    var downloadUrl by remember { mutableStateOf(game?.downloadUrl ?: "") }
-    
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        icon = {
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .background(MaterialTheme.colorScheme.tertiaryContainer, shape = CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    if (game == null) Icons.Default.Add else Icons.Default.Edit,
-                    contentDescription = null,
-                    modifier = Modifier.size(28.dp)
-                )
-            }
-        },
-        title = { Text(if (game == null) "Adicionar Jogo" else "Editar Jogo", fontWeight = FontWeight.Bold) },
-        text = {
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                item {
-                    OutlinedTextField(
-                        value = name,
-                        onValueChange = { name = it },
-                        label = { Text("Nome *") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-                }
-                item {
-                    OutlinedTextField(
-                        value = description,
-                        onValueChange = { description = it },
-                        label = { Text("Descrição") },
-                        modifier = Modifier.fillMaxWidth(),
-                        maxLines = 3
-                    )
-                }
-                item {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(
-                            value = version,
-                            onValueChange = { version = it },
-                            label = { Text("Versão") },
-                            modifier = Modifier.weight(1f),
-                            singleLine = true
-                        )
-                        OutlinedTextField(
-                            value = size,
-                            onValueChange = { size = it },
-                            label = { Text("Tamanho") },
-                            modifier = Modifier.weight(1f),
-                            singleLine = true
-                        )
-                    }
-                }
-                item {
-                    OutlinedTextField(
-                        value = rating,
-                        onValueChange = { rating = it },
-                        label = { Text("Avaliação (0-5)") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-                }
-                item {
-                    OutlinedTextField(
-                        value = developer,
-                        onValueChange = { developer = it },
-                        label = { Text("Desenvolvedor") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-                }
-                item {
-                    OutlinedTextField(
-                        value = category,
-                        onValueChange = { category = it },
-                        label = { Text("Categoria") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-                }
-                item {
-                    OutlinedTextField(
-                        value = iconUrl,
-                        onValueChange = { iconUrl = it },
-                        label = { Text("URL do Ícone") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-                }
-                item {
-                    OutlinedTextField(
-                        value = downloadUrl,
-                        onValueChange = { downloadUrl = it },
-                        label = { Text("URL de Download *") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    val newGame = Game(
-                        id = game?.id ?: UUID.randomUUID().toString(),
-                        name = name,
-                        description = description,
-                        version = version,
-                        size = size,
-                        rating = rating.toFloatOrNull() ?: 0f,
-                        developer = developer,
-                        category = category,
-                        platform = game?.platform ?: "",
-                        iconUrl = iconUrl.ifBlank { null },
-                        bannerUrl = game?.bannerUrl,
-                        screenshots = game?.screenshots ?: "",
-                        downloadUrl = downloadUrl,
-                        releaseDate = game?.releaseDate
-                    )
-                    onConfirm(newGame)
-                },
-                enabled = name.isNotBlank() && downloadUrl.isNotBlank()
-            ) {
-                Text("Salvar")
             }
         },
         dismissButton = {

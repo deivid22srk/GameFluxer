@@ -3,7 +3,13 @@ package com.gamestore.app.data.model
 data class Platform(
     val name: String,
     val databasePath: String,
+    val databases: List<DatabaseEntry> = emptyList(),
     val extendedDownloads: ExtendedDownloads? = null
+)
+
+data class DatabaseEntry(
+    val name: String,
+    val path: String
 )
 
 data class ExtendedDownloads(

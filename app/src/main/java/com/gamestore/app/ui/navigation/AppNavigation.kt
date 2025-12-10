@@ -27,6 +27,7 @@ import com.gamestore.app.ui.screens.DownloadsScreen
 import com.gamestore.app.ui.screens.GameDetailScreen
 import com.gamestore.app.ui.screens.HomeScreen
 import com.gamestore.app.ui.screens.PermissionScreen
+import com.gamestore.app.ui.screens.PlatformGamesScreen
 import com.gamestore.app.ui.screens.SearchScreen
 import com.gamestore.app.ui.screens.SettingsScreen
 import com.gamestore.app.util.PermissionHelper
@@ -38,6 +39,9 @@ sealed class Screen(val route: String) {
     object Settings : Screen("settings")
     object Downloads : Screen("downloads")
     object DatabaseManager : Screen("database_manager")
+    object PlatformGames : Screen("platform_games/{platformName}") {
+        fun createRoute(platformName: String) = "platform_games/$platformName"
+    }
     object GameDetail : Screen("game_detail/{gameId}") {
         fun createRoute(gameId: String) = "game_detail/$gameId"
     }
@@ -207,6 +211,20 @@ fun AppNavigation() {
 
             composable(Screen.DatabaseManager.route) {
                 DatabaseManagerScreen(
+                    onBackClick = { navController.popBackStack() },
+                    onNavigateToPlatformGames = { platformName ->
+                        navController.navigate(Screen.PlatformGames.createRoute(platformName))
+                    }
+                )
+            }
+
+            composable(
+                route = Screen.PlatformGames.route,
+                arguments = listOf(navArgument("platformName") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val platformName = backStackEntry.arguments?.getString("platformName") ?: return@composable
+                PlatformGamesScreen(
+                    platformName = platformName,
                     onBackClick = { navController.popBackStack() }
                 )
             }
