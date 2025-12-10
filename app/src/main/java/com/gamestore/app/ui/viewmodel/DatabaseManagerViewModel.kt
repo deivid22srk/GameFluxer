@@ -4,10 +4,10 @@ import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.gamestore.app.GameStoreApplication
 import com.gamestore.app.data.model.DatabaseConfig
 import com.gamestore.app.data.model.Game
 import com.gamestore.app.data.model.Platform
-import com.gamestore.app.data.preferences.PreferencesManager
 import com.gamestore.app.util.DatabaseExporter
 import com.gamestore.app.util.JsonImporter
 import com.gamestore.app.util.ZipImporter
@@ -19,7 +19,9 @@ import kotlinx.coroutines.launch
 
 class DatabaseManagerViewModel(application: Application) : AndroidViewModel(application) {
     
-    private val preferencesManager = PreferencesManager(application)
+    private val app = application as GameStoreApplication
+    private val repository = app.repository
+    private val preferencesManager = app.preferencesManager
     private val zipImporter = ZipImporter(application)
     private val jsonImporter = JsonImporter(application)
     private val databaseExporter = DatabaseExporter(application)
@@ -43,14 +45,14 @@ class DatabaseManagerViewModel(application: Application) : AndroidViewModel(appl
     private fun loadCurrentDatabase() {
         viewModelScope.launch {
             try {
-                val configJson = preferencesManager.databaseConfig.first()
-                if (configJson.isNotEmpty()) {
+                val configJson = preferencesManager.platformsJson.first()
+                if (!configJson.isNullOrEmpty()) {
                     val config = Gson().fromJson(configJson, DatabaseConfig::class.java)
                     _currentConfig.value = config
                     
                     val storedGames = mutableMapOf<String, List<Game>>()
                     config.platforms.forEach { platform ->
-                        val platformGames = preferencesManager.getGamesForPlatform(platform.name).first()
+                        val platformGames = repository.getGamesByPlatform(platform.name).first()
                         storedGames[platform.name] = platformGames
                     }
                     _gamesMap.value = storedGames
@@ -270,10 +272,12 @@ class DatabaseManagerViewModel(application: Application) : AndroidViewModel(appl
                     _currentConfig.value = result.config
                     _gamesMap.value = result.games
                     
-                    preferencesManager.saveDatabaseConfig(Gson().toJson(result.config))
-                    result.games.forEach { (platform, games) ->
-                        preferencesManager.saveGamesForPlatform(platform, games)
+                    repository.deleteAllGames()
+                    result.games.forEach { (_, games) ->
+                        repository.insertGames(games)
                     }
+                    
+                    preferencesManager.setPlatformsJson(Gson().toJson(result.config))
                     
                     val totalGames = result.games.values.sumOf { it.size }
                     _statusMessage.value = "Importado: ${result.games.size} plataformas, $totalGames jogos"
@@ -301,9 +305,18 @@ class DatabaseManagerViewModel(application: Application) : AndroidViewModel(appl
                     return@launch
                 }
                 
-                preferencesManager.saveDatabaseConfig(Gson().toJson(config))
-                _gamesMap.value.forEach { (platform, games) ->
-                    preferencesManager.saveGamesForPlatform(platform, games)
+                repository.deleteAllGames()
+                _gamesMap.value.forEach { (_, games) ->
+                    repository.insertGames(games)
+                }
+                
+                preferencesManager.setPlatformsJson(Gson().toJson(config))
+                
+                if (config.platforms.isNotEmpty()) {
+                    val currentPlatform = preferencesManager.currentPlatform.first()
+                    if (currentPlatform == null || !config.platforms.any { it.name == currentPlatform }) {
+                        preferencesManager.setCurrentPlatform(config.platforms[0].name)
+                    }
                 }
                 
                 _statusMessage.value = "Banco de dados salvo com sucesso!"
