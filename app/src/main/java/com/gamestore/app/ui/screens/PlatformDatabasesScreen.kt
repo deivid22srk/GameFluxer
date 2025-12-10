@@ -66,8 +66,7 @@ fun PlatformDatabasesScreen(
                 title = { 
                     Text(
                         "Databases - $platformName", 
-                        fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.titleLarge
+                        fontWeight = FontWeight.Bold
                     ) 
                 },
                 navigationIcon = {

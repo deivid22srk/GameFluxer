@@ -118,6 +118,7 @@ class DatabaseManagerViewModel(application: Application) : AndroidViewModel(appl
                 _currentConfig.value = updatedConfig
                 _gamesMap.value = _gamesMap.value + (platformName to emptyList())
                 
+                saveCurrentDatabase()
                 _statusMessage.value = "Plataforma '$platformName' adicionada!"
                 _isLoading.value = false
             } catch (e: Exception) {
@@ -141,6 +142,7 @@ class DatabaseManagerViewModel(application: Application) : AndroidViewModel(appl
                 _currentConfig.value = updatedConfig
                 _gamesMap.value = _gamesMap.value.filterKeys { it != platformName }
                 
+                saveCurrentDatabase()
                 _statusMessage.value = "Plataforma '$platformName' removida!"
                 _isLoading.value = false
             } catch (e: Exception) {
@@ -167,6 +169,7 @@ class DatabaseManagerViewModel(application: Application) : AndroidViewModel(appl
                     updatedGames[platformName] = gamesWithPlatform
                     _gamesMap.value = updatedGames
                     
+                    saveCurrentDatabase()
                     _statusMessage.value = "${result.games.size} jogos importados para '$platformName'!"
                 } else {
                     _statusMessage.value = result.error ?: "Erro ao importar JSON"
@@ -190,6 +193,7 @@ class DatabaseManagerViewModel(application: Application) : AndroidViewModel(appl
                 updatedGames[platformName] = currentGames + gameWithPlatform
                 _gamesMap.value = updatedGames
                 
+                saveCurrentDatabase()
                 _statusMessage.value = "Jogo '${game.name}' adicionado!"
             } catch (e: Exception) {
                 _statusMessage.value = "Erro ao adicionar jogo: ${e.message}"
@@ -210,6 +214,7 @@ class DatabaseManagerViewModel(application: Application) : AndroidViewModel(appl
                     }
                     _gamesMap.value = updatedGames
                     
+                    saveCurrentDatabase()
                     _statusMessage.value = "Jogo '${updatedGame.name}' atualizado!"
                 } else {
                     _statusMessage.value = "Jogo não encontrado!"
@@ -228,6 +233,7 @@ class DatabaseManagerViewModel(application: Application) : AndroidViewModel(appl
                 updatedGames[platformName] = currentGames.filter { it.id != gameId }
                 _gamesMap.value = updatedGames
                 
+                saveCurrentDatabase()
                 _statusMessage.value = "Jogo removido!"
             } catch (e: Exception) {
                 _statusMessage.value = "Erro ao remover jogo: ${e.message}"
@@ -298,12 +304,8 @@ class DatabaseManagerViewModel(application: Application) : AndroidViewModel(appl
     fun saveCurrentDatabase() {
         viewModelScope.launch {
             try {
-                _isLoading.value = true
-                
                 val config = _currentConfig.value
                 if (config == null) {
-                    _statusMessage.value = "Nenhum banco de dados para salvar"
-                    _isLoading.value = false
                     return@launch
                 }
                 
@@ -320,12 +322,8 @@ class DatabaseManagerViewModel(application: Application) : AndroidViewModel(appl
                         preferencesManager.setCurrentPlatform(config.platforms[0].name)
                     }
                 }
-                
-                _statusMessage.value = "Banco de dados salvo com sucesso!"
-                _isLoading.value = false
             } catch (e: Exception) {
                 _statusMessage.value = "Erro ao salvar: ${e.message}"
-                _isLoading.value = false
             }
         }
     }
@@ -348,6 +346,7 @@ class DatabaseManagerViewModel(application: Application) : AndroidViewModel(appl
                 }
                 
                 _currentConfig.value = currentConfig.copy(platforms = updatedPlatforms)
+                saveCurrentDatabase()
                 _statusMessage.value = "Database '$databaseName' adicionado à plataforma '$platformName'!"
             } catch (e: Exception) {
                 _statusMessage.value = "Erro ao adicionar database: ${e.message}"
@@ -373,6 +372,7 @@ class DatabaseManagerViewModel(application: Application) : AndroidViewModel(appl
                 val databaseKey = "$platformName:$databaseName"
                 _gamesMap.value = _gamesMap.value.filterKeys { it != databaseKey }
                 
+                saveCurrentDatabase()
                 _statusMessage.value = "Database '$databaseName' removido da plataforma '$platformName'!"
             } catch (e: Exception) {
                 _statusMessage.value = "Erro ao remover database: ${e.message}"
@@ -398,6 +398,7 @@ class DatabaseManagerViewModel(application: Application) : AndroidViewModel(appl
                     updatedGames[databaseKey] = gamesWithPlatform
                     _gamesMap.value = updatedGames
                     
+                    saveCurrentDatabase()
                     _statusMessage.value = "${result.games.size} jogos importados para '$platformName - $databaseName'!"
                 } else {
                     _statusMessage.value = result.error ?: "Erro ao importar JSON"

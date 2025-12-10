@@ -57,8 +57,7 @@ fun PlatformGamesScreen(
                 title = { 
                     Text(
                         platformName, 
-                        fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.titleLarge
+                        fontWeight = FontWeight.Bold
                     ) 
                 },
                 navigationIcon = {

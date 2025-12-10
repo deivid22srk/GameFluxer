@@ -100,7 +100,6 @@ fun AppNavigation() {
     )
     
     val showTopBar = currentDestination?.route in listOf(
-        Screen.Home.route,
         Screen.Search.route,
         Screen.Settings.route
     )

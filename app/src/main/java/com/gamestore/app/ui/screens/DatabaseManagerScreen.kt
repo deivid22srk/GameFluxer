@@ -78,8 +78,7 @@ fun DatabaseManagerScreen(
                 title = { 
                     Text(
                         "Gerenciar Banco de Dados", 
-                        fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.titleLarge
+                        fontWeight = FontWeight.Bold
                     ) 
                 },
                 navigationIcon = {
