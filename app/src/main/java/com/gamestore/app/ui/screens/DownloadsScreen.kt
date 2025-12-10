@@ -49,6 +49,7 @@ fun DownloadsScreen(
         it.status == DownloadStatus.FAILED || it.status == DownloadStatus.CANCELLED 
     }
     var showDeleteDialog by remember { mutableStateOf<Download?>(null) }
+    val context = LocalContext.current
 
     Scaffold(
         topBar = {
@@ -168,7 +169,7 @@ fun DownloadsScreen(
                             onResume = { viewModel.resumeDownload(download.id) },
                             onCancel = { viewModel.cancelDownload(download.id) },
                             onDelete = { showDeleteDialog = download },
-                            onInstall = { viewModel.installApk(LocalContext.current, download.filePath) }
+                            onInstall = { viewModel.installApk(context, download.filePath) }
                         )
                     }
                 }
@@ -190,7 +191,7 @@ fun DownloadsScreen(
                             onResume = { viewModel.resumeDownload(download.id) },
                             onCancel = { viewModel.cancelDownload(download.id) },
                             onDelete = { showDeleteDialog = download },
-                            onInstall = { viewModel.installApk(LocalContext.current, download.filePath) }
+                            onInstall = { viewModel.installApk(context, download.filePath) }
                         )
                     }
                 }
@@ -212,7 +213,7 @@ fun DownloadsScreen(
                             onResume = { viewModel.resumeDownload(download.id) },
                             onCancel = { viewModel.cancelDownload(download.id) },
                             onDelete = { showDeleteDialog = download },
-                            onInstall = { viewModel.installApk(LocalContext.current, download.filePath) }
+                            onInstall = { viewModel.installApk(context, download.filePath) }
                         )
                     }
                 }
@@ -234,7 +235,7 @@ fun DownloadsScreen(
                             onResume = { viewModel.resumeDownload(download.id) },
                             onCancel = { viewModel.cancelDownload(download.id) },
                             onDelete = { showDeleteDialog = download },
-                            onInstall = { viewModel.installApk(LocalContext.current, download.filePath) }
+                            onInstall = { viewModel.installApk(context, download.filePath) }
                         )
                     }
                 }
