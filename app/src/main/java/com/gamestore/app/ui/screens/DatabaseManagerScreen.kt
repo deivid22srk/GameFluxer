@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.gamestore.app.data.model.Game
 import com.gamestore.app.ui.viewmodel.DatabaseManagerViewModel
@@ -98,7 +99,8 @@ fun DatabaseManagerScreen(
                     titleContentColor = MaterialTheme.colorScheme.onPrimary,
                     navigationIconContentColor = MaterialTheme.colorScheme.onPrimary,
                     actionIconContentColor = MaterialTheme.colorScheme.onPrimary
-                )
+                ),
+                windowInsets = WindowInsets(0, 0, 0, 0)
             )
         }
     ) { paddingValues ->
