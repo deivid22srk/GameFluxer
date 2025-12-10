@@ -38,7 +38,9 @@ fun DatabaseManagerScreen(
     
     var showCreateDialog by remember { mutableStateOf(false) }
     var showAddPlatformDialog by remember { mutableStateOf(false) }
+    var showAddDatabaseDialog by remember { mutableStateOf(false) }
     var selectedPlatform by remember { mutableStateOf<String?>(null) }
+    var selectedPlatformForDatabase by remember { mutableStateOf<String?>(null) }
     
     val importZipLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -213,6 +215,13 @@ fun DatabaseManagerScreen(
                                 }
                                 importJsonLauncher.launch(intent)
                             },
+                            onAddDatabase = {
+                                selectedPlatformForDatabase = platform.name
+                                showAddDatabaseDialog = true
+                            },
+                            onRemoveDatabase = { dbName ->
+                                viewModel.removeDatabaseFromPlatform(platform.name, dbName)
+                            },
                             onRemovePlatform = {
                                 viewModel.removePlatform(platform.name)
                             }
@@ -287,6 +296,18 @@ fun DatabaseManagerScreen(
             onConfirm = { platformName ->
                 viewModel.addPlatform(platformName)
                 showAddPlatformDialog = false
+            }
+        )
+    }
+    
+    if (showAddDatabaseDialog && selectedPlatformForDatabase != null) {
+        AddDatabaseDialog(
+            platformName = selectedPlatformForDatabase!!,
+            onDismiss = { showAddDatabaseDialog = false },
+            onConfirm = { dbName ->
+                val dbPath = "databases/${selectedPlatformForDatabase!!.lowercase().replace(" ", "_")}_${dbName.lowercase().replace(" ", "_")}.json"
+                viewModel.addDatabaseToPlatform(selectedPlatformForDatabase!!, dbName, dbPath)
+                showAddDatabaseDialog = false
             }
         )
     }
@@ -366,6 +387,8 @@ fun PlatformCard(
     gameCount: Int,
     onCardClick: () -> Unit,
     onImportJson: () -> Unit,
+    onAddDatabase: () -> Unit,
+    onRemoveDatabase: (String) -> Unit,
     onRemovePlatform: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
