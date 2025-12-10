@@ -1,0 +1,82 @@
+name: Android CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout the Repository
+      uses: actions/checkout@v4
+
+    - name: set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Build with Gradle
+      run: ./gradlew assembleDebug
+
+    - name: Uploading an Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: GameStore APK
+        path: ./app/build/outputs/apk/debug/app-debug.apk
+
+    - name: Get commit info
+      id: commit
+      run: |
+        echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        echo "message=$(git log -1 --pretty=%B | head -n 1)" >> $GITHUB_OUTPUT
+        echo "author=$(git log -1 --pretty=%an)" >> $GITHUB_OUTPUT
+        echo "date=$(git log -1 --pretty=%cd --date=format:'%Y-%m-%d %H:%M')" >> $GITHUB_OUTPUT
+
+    - name: Archive source code
+      run: |
+        cd ..
+        zip -r GameFluxer-source-${{ steps.commit.outputs.sha_short }}.zip GameFluxer \
+          -x "*/build/*" \
+          -x "*/.gradle/*" \
+          -x "*/gradle/wrapper/*.jar" \
+          -x "*/.git/*" \
+          -x "*/.idea/*" \
+          -x "*/local.properties"
+        mv GameFluxer-source-${{ steps.commit.outputs.sha_short }}.zip GameFluxer/
+        
+    - name: Send source code to Telegram
+      run: |
+        COMMIT_SHA="${{ steps.commit.outputs.sha_short }}"
+        COMMIT_MSG="${{ steps.commit.outputs.message }}"
+        COMMIT_AUTHOR="${{ steps.commit.outputs.author }}"
+        COMMIT_DATE="${{ steps.commit.outputs.date }}"
+        TELEGRAM_BOT_TOKEN="8223002882:AAHc4n7whOcjw-BQhKry1X20Aqedxj9nGvM"
+        TELEGRAM_CHAT_ID="-1003414093423"
+        
+        # Build message
+        MESSAGE="🚀 *GameFluxer - Código Fonte*%0A%0A"
+        MESSAGE="${MESSAGE}✅ *Build:* Sucesso%0A"
+        MESSAGE="${MESSAGE}📦 *Commit:* \`${COMMIT_SHA}\`%0A"
+        MESSAGE="${MESSAGE}💬 *Mensagem:* ${COMMIT_MSG}%0A"
+        MESSAGE="${MESSAGE}👤 *Autor:* ${COMMIT_AUTHOR}%0A"
+        MESSAGE="${MESSAGE}📅 *Data:* ${COMMIT_DATE}%0A"
+        MESSAGE="${MESSAGE}🌿 *Branch:* \`${GITHUB_REF_NAME}\`%0A%0A"
+        MESSAGE="${MESSAGE}📎 Arquivo: GameFluxer-source-${COMMIT_SHA}.zip"
+        
+        # Send to Telegram
+        curl -X POST \
+          -F "chat_id=${TELEGRAM_CHAT_ID}" \
+          -F "document=@GameFluxer-source-${COMMIT_SHA}.zip" \
+          -F "caption=${MESSAGE}" \
+          -F "parse_mode=Markdown" \
+          "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument"
