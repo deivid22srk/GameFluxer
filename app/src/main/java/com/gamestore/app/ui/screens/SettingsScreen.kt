@@ -41,7 +41,8 @@ import com.gamestore.app.ui.viewmodel.MainViewModel
 @Composable
 fun SettingsScreen(
     viewModel: MainViewModel = viewModel(),
-    downloadViewModel: DownloadViewModel = viewModel()
+    downloadViewModel: DownloadViewModel = viewModel(),
+    onNavigateToDatabaseManager: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val currentPlatform by viewModel.currentPlatform.collectAsState()
@@ -282,37 +283,52 @@ fun SettingsScreen(
                 SettingCard(
                     icon = Icons.Default.Storage,
                     title = "Banco de Dados",
-                    subtitle = "Importar ou atualizar catálogo de jogos",
+                    subtitle = "Criar, editar, importar e exportar bancos de dados",
                     gradient = listOf(
                         MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
                         MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
                     ),
                     iconTint = MaterialTheme.colorScheme.primary
                 ) {
-                    OutlinedButton(
-                        onClick = {
-                            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-                                addCategory(Intent.CATEGORY_OPENABLE)
-                                type = "application/zip"
-                            }
-                            databaseLauncher.launch(intent)
-                        },
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = !isLoading,
-                        shape = RoundedCornerShape(12.dp),
-                        border = ButtonDefaults.outlinedButtonBorder.copy(width = 2.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        if (isLoading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp
+                        Button(
+                            onClick = onNavigateToDatabaseManager,
+                            modifier = Modifier.weight(1f),
+                            enabled = !isLoading,
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Importando...", fontWeight = FontWeight.Bold)
-                        } else {
-                            Icon(Icons.Default.Upload, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Importar Banco ZIP", fontWeight = FontWeight.Bold)
+                        ) {
+                            Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Gerenciar", fontWeight = FontWeight.Bold)
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                                    addCategory(Intent.CATEGORY_OPENABLE)
+                                    type = "application/zip"
+                                }
+                                databaseLauncher.launch(intent)
+                            },
+                            modifier = Modifier.weight(1f),
+                            enabled = !isLoading,
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            if (isLoading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Icon(Icons.Default.Upload, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Importar", fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }

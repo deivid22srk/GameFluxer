@@ -22,6 +22,7 @@ import androidx.navigation.navArgument
 import android.os.Build
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
+import com.gamestore.app.ui.screens.DatabaseManagerScreen
 import com.gamestore.app.ui.screens.DownloadsScreen
 import com.gamestore.app.ui.screens.GameDetailScreen
 import com.gamestore.app.ui.screens.HomeScreen
@@ -36,6 +37,7 @@ sealed class Screen(val route: String) {
     object Search : Screen("search")
     object Settings : Screen("settings")
     object Downloads : Screen("downloads")
+    object DatabaseManager : Screen("database_manager")
     object GameDetail : Screen("game_detail/{gameId}") {
         fun createRoute(gameId: String) = "game_detail/$gameId"
     }
@@ -190,11 +192,21 @@ fun AppNavigation() {
             }
 
             composable(Screen.Settings.route) {
-                SettingsScreen()
+                SettingsScreen(
+                    onNavigateToDatabaseManager = {
+                        navController.navigate(Screen.DatabaseManager.route)
+                    }
+                )
             }
 
             composable(Screen.Downloads.route) {
                 DownloadsScreen(
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
+
+            composable(Screen.DatabaseManager.route) {
+                DatabaseManagerScreen(
                     onBackClick = { navController.popBackStack() }
                 )
             }
