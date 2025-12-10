@@ -20,6 +20,8 @@ class PreferencesManager(private val context: Context) {
         private val PLATFORMS_JSON_KEY = stringPreferencesKey("platforms_json")
         private val GITHUB_REPO_URL_KEY = stringPreferencesKey("github_repo_url")
         private val CUSTOM_DOWNLOAD_SOURCES_KEY = stringSetPreferencesKey("custom_download_sources")
+        private val INTERNET_ARCHIVE_EMAIL_KEY = stringPreferencesKey("internet_archive_email")
+        private val INTERNET_ARCHIVE_PASSWORD_KEY = stringPreferencesKey("internet_archive_password")
     }
     
     val downloadFolder: Flow<String?> = context.dataStore.data.map { preferences ->
@@ -40,6 +42,14 @@ class PreferencesManager(private val context: Context) {
     
     val customDownloadSources: Flow<Set<String>> = context.dataStore.data.map { preferences ->
         preferences[CUSTOM_DOWNLOAD_SOURCES_KEY] ?: emptySet()
+    }
+    
+    val internetArchiveEmail: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[INTERNET_ARCHIVE_EMAIL_KEY] ?: ""
+    }
+    
+    val internetArchivePassword: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[INTERNET_ARCHIVE_PASSWORD_KEY] ?: ""
     }
     
     suspend fun setDownloadFolder(path: String) {
@@ -83,6 +93,20 @@ class PreferencesManager(private val context: Context) {
     suspend fun clearCustomDownloadSources() {
         context.dataStore.edit { preferences ->
             preferences[CUSTOM_DOWNLOAD_SOURCES_KEY] = emptySet()
+        }
+    }
+    
+    suspend fun setInternetArchiveCredentials(email: String, password: String) {
+        context.dataStore.edit { preferences ->
+            preferences[INTERNET_ARCHIVE_EMAIL_KEY] = email
+            preferences[INTERNET_ARCHIVE_PASSWORD_KEY] = password
+        }
+    }
+    
+    suspend fun clearInternetArchiveCredentials() {
+        context.dataStore.edit { preferences ->
+            preferences[INTERNET_ARCHIVE_EMAIL_KEY] = ""
+            preferences[INTERNET_ARCHIVE_PASSWORD_KEY] = ""
         }
     }
 }

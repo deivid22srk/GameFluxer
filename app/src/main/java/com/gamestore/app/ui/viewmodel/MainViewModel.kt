@@ -45,6 +45,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val customDownloadSources: StateFlow<Set<String>> = preferencesManager.customDownloadSources
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
     
+    val internetArchiveEmail: StateFlow<String> = preferencesManager.internetArchiveEmail
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
+    
+    val internetArchivePassword: StateFlow<String> = preferencesManager.internetArchivePassword
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
+    
     private val _currentPlatformData = MutableStateFlow<Platform?>(null)
     val currentPlatformData: StateFlow<Platform?> = _currentPlatformData
 
@@ -199,6 +205,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun removeCustomDownloadSource(url: String) {
         viewModelScope.launch {
             preferencesManager.removeCustomDownloadSource(url)
+        }
+    }
+    
+    fun setInternetArchiveCredentials(email: String, password: String) {
+        viewModelScope.launch {
+            preferencesManager.setInternetArchiveCredentials(email, password)
+        }
+    }
+    
+    fun clearInternetArchiveCredentials() {
+        viewModelScope.launch {
+            preferencesManager.clearInternetArchiveCredentials()
         }
     }
     

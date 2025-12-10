@@ -15,6 +15,7 @@ import com.gamestore.app.data.local.GameDatabase
 import com.gamestore.app.data.model.Download
 import com.gamestore.app.data.model.DownloadStatus
 import com.gamestore.app.data.repository.DownloadRepository
+import com.gamestore.app.data.preferences.PreferencesManager
 import com.gamestore.app.util.DownloadDebugHelper
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
@@ -34,6 +35,10 @@ class DownloadService : Service() {
     }
     private val downloadRepository by lazy {
         DownloadRepository(GameDatabase.getDatabase(applicationContext).downloadDao())
+    }
+    
+    private val preferencesManager by lazy {
+        PreferencesManager(applicationContext)
     }
     
     private val activeDownloads = mutableMapOf<String, Job>()
@@ -197,6 +202,26 @@ class DownloadService : Service() {
     }
 
     private suspend fun performDownload(download: Download) {
+        val downloadUrls = download.url.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+        var lastException: Exception? = null
+        
+        for ((index, downloadUrl) in downloadUrls.withIndex()) {
+            try {
+                performSingleDownload(download, downloadUrl, index == downloadUrls.size - 1)
+                return
+            } catch (e: Exception) {
+                lastException = e
+                if (index < downloadUrls.size - 1) {
+                    DownloadDebugHelper.logError("Download failed for URL ${index + 1}, trying next URL", e)
+                    continue
+                }
+            }
+        }
+        
+        throw lastException ?: Exception("No download URLs available")
+    }
+
+    private suspend fun performSingleDownload(download: Download, downloadUrl: String, isLastAttempt: Boolean) {
         var connection: HttpURLConnection? = null
         var input: InputStream? = null
         var output: FileOutputStream? = null
@@ -207,10 +232,9 @@ class DownloadService : Service() {
             
             val existingBytes = if (file.exists()) file.length() else 0L
 
-            // Debug log
-            DownloadDebugHelper.logDownloadStart(download.url, download.customHeaders != null)
+            DownloadDebugHelper.logDownloadStart(downloadUrl, download.customHeaders != null)
 
-            val url = URL(download.url)
+            val url = URL(downloadUrl)
             connection = url.openConnection() as HttpURLConnection
             connection.instanceFollowRedirects = true
             connection.connectTimeout = 15000
@@ -226,6 +250,13 @@ class DownloadService : Service() {
             } else {
                 // Headers padrão se não houver customizados
                 connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36")
+            }
+            
+            if (downloadUrl.contains("archive.org", ignoreCase = true)) {
+                val cookies = getInternetArchiveCookies()
+                if (cookies != null) {
+                    connection.setRequestProperty("Cookie", cookies)
+                }
             }
             
             if (existingBytes > 0) {
@@ -532,6 +563,44 @@ class DownloadService : Service() {
                 stopForeground(true)
                 stopSelf()
             }
+        }
+    }
+
+    private suspend fun getInternetArchiveCookies(): String? {
+        return try {
+            val email = preferencesManager.internetArchiveEmail.first()
+            val password = preferencesManager.internetArchivePassword.first()
+            
+            if (email.isEmpty() || password.isEmpty()) {
+                return null
+            }
+            
+            val loginUrl = URL("https://archive.org/account/login")
+            val connection = loginUrl.openConnection() as HttpURLConnection
+            connection.requestMethod = "POST"
+            connection.doOutput = true
+            connection.instanceFollowRedirects = false
+            connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
+            connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36")
+            
+            val postData = "username=${java.net.URLEncoder.encode(email, "UTF-8")}&password=${java.net.URLEncoder.encode(password, "UTF-8")}&submit_by_js=true"
+            connection.outputStream.write(postData.toByteArray())
+            
+            val responseCode = connection.responseCode
+            if (responseCode in 200..399) {
+                val cookies = connection.headerFields["Set-Cookie"]
+                if (cookies != null && cookies.isNotEmpty()) {
+                    return cookies.joinToString("; ") { cookie ->
+                        cookie.split(";")[0]
+                    }
+                }
+            }
+            
+            connection.disconnect()
+            null
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
         }
     }
 

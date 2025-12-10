@@ -52,12 +52,15 @@ fun SettingsScreen(
     val githubRepoUrl by viewModel.githubRepoUrl.collectAsState()
     val customDownloadSources by viewModel.customDownloadSources.collectAsState()
     val currentPlatformData by viewModel.currentPlatformData.collectAsState()
+    val internetArchiveEmail by viewModel.internetArchiveEmail.collectAsState()
+    val internetArchivePassword by viewModel.internetArchivePassword.collectAsState()
     
     var showPlatformDialog by remember { mutableStateOf(false) }
     var showFolderPicker by remember { mutableStateOf(false) }
     var showStoragePermissionDialog by remember { mutableStateOf(false) }
     var showGitHubDialog by remember { mutableStateOf(false) }
     var showSourcesDialog by remember { mutableStateOf(false) }
+    var showInternetArchiveDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(importStatus) {
@@ -310,6 +313,64 @@ fun SettingsScreen(
                             Icon(Icons.Default.Upload, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Importar Banco ZIP", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+
+            item {
+                SettingCard(
+                    icon = Icons.Default.AccountCircle,
+                    title = "Internet Archive",
+                    subtitle = if (internetArchiveEmail.isNotEmpty()) 
+                        "Conectado como $internetArchiveEmail" 
+                    else 
+                        "Faça login para baixar arquivos restritos",
+                    gradient = listOf(
+                        MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
+                        MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f)
+                    ),
+                    iconTint = MaterialTheme.colorScheme.secondary
+                ) {
+                    if (internetArchiveEmail.isNotEmpty()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = { showInternetArchiveDialog = true },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Editar", fontWeight = FontWeight.Bold)
+                            }
+                            Button(
+                                onClick = { viewModel.clearInternetArchiveCredentials() },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.error
+                                )
+                            ) {
+                                Icon(Icons.Default.Logout, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Desconectar", fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    } else {
+                        Button(
+                            onClick = { showInternetArchiveDialog = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.secondary
+                            )
+                        ) {
+                            Icon(Icons.Default.Login, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Fazer Login", fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -647,6 +708,114 @@ fun SettingsScreen(
             onDismiss = { showSourcesDialog = false },
             onAddSource = { url -> viewModel.addCustomDownloadSource(url) },
             onRemoveSource = { url -> viewModel.removeCustomDownloadSource(url) }
+        )
+    }
+    
+    if (showInternetArchiveDialog) {
+        var email by remember { mutableStateOf(internetArchiveEmail) }
+        var password by remember { mutableStateOf(internetArchivePassword) }
+        
+        AlertDialog(
+            onDismissRequest = { showInternetArchiveDialog = false },
+            icon = {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .background(
+                            MaterialTheme.colorScheme.secondaryContainer,
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.AccountCircle,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            },
+            title = { 
+                Text(
+                    "Login no Internet Archive",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleLarge
+                ) 
+            },
+            text = {
+                Column {
+                    Text(
+                        text = "Faça login para baixar arquivos que requerem autenticação:",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = email,
+                        onValueChange = { email = it },
+                        label = { Text("Email") },
+                        placeholder = { Text("seu-email@exemplo.com") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Email,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.secondary
+                            )
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.secondary,
+                            focusedLabelColor = MaterialTheme.colorScheme.secondary
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it },
+                        label = { Text("Senha") },
+                        placeholder = { Text("Sua senha") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Lock,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.secondary
+                            )
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.secondary,
+                            focusedLabelColor = MaterialTheme.colorScheme.secondary
+                        )
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.setInternetArchiveCredentials(email, password)
+                        showInternetArchiveDialog = false
+                    },
+                    enabled = email.isNotEmpty() && password.isNotEmpty(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.Check, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Salvar", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = { showInternetArchiveDialog = false },
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Cancelar")
+                }
+            },
+            shape = RoundedCornerShape(28.dp)
         )
     }
 }
