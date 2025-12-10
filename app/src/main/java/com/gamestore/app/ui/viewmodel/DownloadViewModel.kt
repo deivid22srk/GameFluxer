@@ -1,6 +1,10 @@
 package com.gamestore.app.ui.viewmodel
 
 import android.app.Application
+import android.content.Context
+import android.content.Intent
+import android.os.Build
+import androidx.core.content.FileProvider
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.gamestore.app.data.local.GameDatabase
@@ -139,6 +143,41 @@ class DownloadViewModel(application: Application) : AndroidViewModel(application
     fun setDownloadFolder(path: String) {
         viewModelScope.launch {
             preferencesManager.setDownloadFolder(path)
+        }
+    }
+
+    fun installApk(context: Context, filePath: String) {
+        viewModelScope.launch {
+            try {
+                val apkFile = File(filePath)
+                if (!apkFile.exists()) {
+                    android.util.Log.e("DownloadViewModel", "APK file not found: $filePath")
+                    return@launch
+                }
+
+                val intent = Intent(Intent.ACTION_VIEW)
+                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    val apkUri = FileProvider.getUriForFile(
+                        context,
+                        "${context.packageName}.fileprovider",
+                        apkFile
+                    )
+                    intent.setDataAndType(apkUri, "application/vnd.android.package-archive")
+                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                } else {
+                    intent.setDataAndType(
+                        android.net.Uri.fromFile(apkFile),
+                        "application/vnd.android.package-archive"
+                    )
+                }
+                
+                context.startActivity(intent)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                android.util.Log.e("DownloadViewModel", "Error installing APK", e)
+            }
         }
     }
 

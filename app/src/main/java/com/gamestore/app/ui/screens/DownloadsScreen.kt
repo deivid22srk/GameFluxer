@@ -25,6 +25,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.gamestore.app.data.model.Download
@@ -166,7 +167,8 @@ fun DownloadsScreen(
                             onPause = { viewModel.pauseDownload(download.id) },
                             onResume = { viewModel.resumeDownload(download.id) },
                             onCancel = { viewModel.cancelDownload(download.id) },
-                            onDelete = { showDeleteDialog = download }
+                            onDelete = { showDeleteDialog = download },
+                            onInstall = { viewModel.installApk(LocalContext.current, download.filePath) }
                         )
                     }
                 }
@@ -187,7 +189,8 @@ fun DownloadsScreen(
                             onPause = { viewModel.pauseDownload(download.id) },
                             onResume = { viewModel.resumeDownload(download.id) },
                             onCancel = { viewModel.cancelDownload(download.id) },
-                            onDelete = { showDeleteDialog = download }
+                            onDelete = { showDeleteDialog = download },
+                            onInstall = { viewModel.installApk(LocalContext.current, download.filePath) }
                         )
                     }
                 }
@@ -208,7 +211,8 @@ fun DownloadsScreen(
                             onPause = { viewModel.pauseDownload(download.id) },
                             onResume = { viewModel.resumeDownload(download.id) },
                             onCancel = { viewModel.cancelDownload(download.id) },
-                            onDelete = { showDeleteDialog = download }
+                            onDelete = { showDeleteDialog = download },
+                            onInstall = { viewModel.installApk(LocalContext.current, download.filePath) }
                         )
                     }
                 }
@@ -229,7 +233,8 @@ fun DownloadsScreen(
                             onPause = { viewModel.pauseDownload(download.id) },
                             onResume = { viewModel.resumeDownload(download.id) },
                             onCancel = { viewModel.cancelDownload(download.id) },
-                            onDelete = { showDeleteDialog = download }
+                            onDelete = { showDeleteDialog = download },
+                            onInstall = { viewModel.installApk(LocalContext.current, download.filePath) }
                         )
                     }
                 }
@@ -335,7 +340,8 @@ fun DownloadItemCard(
     onPause: () -> Unit,
     onResume: () -> Unit,
     onCancel: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onInstall: () -> Unit
 ) {
     val progress = if (download.totalBytes > 0) {
         download.downloadedBytes.toFloat() / download.totalBytes.toFloat()
@@ -474,7 +480,34 @@ fun DownloadItemCard(
                                 )
                             }
                         }
-                        DownloadStatus.COMPLETED, DownloadStatus.FAILED, DownloadStatus.CANCELLED -> {
+                        DownloadStatus.COMPLETED -> {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                if (download.filePath.endsWith(".apk", ignoreCase = true)) {
+                                    FilledIconButton(
+                                        onClick = onInstall,
+                                        colors = IconButtonDefaults.filledIconButtonColors(
+                                            containerColor = MaterialTheme.colorScheme.tertiary
+                                        )
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Android,
+                                            contentDescription = "Instalar",
+                                            tint = MaterialTheme.colorScheme.onTertiary
+                                        )
+                                    }
+                                }
+                                IconButton(onClick = onDelete) {
+                                    Icon(
+                                        Icons.Default.Delete,
+                                        contentDescription = "Excluir",
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                            }
+                        }
+                        DownloadStatus.FAILED, DownloadStatus.CANCELLED -> {
                             IconButton(onClick = onDelete) {
                                 Icon(
                                     Icons.Default.Delete,
@@ -571,6 +604,30 @@ fun DownloadItemCard(
                 }
             } else if (download.status == DownloadStatus.COMPLETED) {
                 Spacer(modifier = Modifier.height(12.dp))
+                
+                if (download.filePath.endsWith(".apk", ignoreCase = true)) {
+                    Button(
+                        onClick = onInstall,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.tertiary
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Android,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Instalar APK",
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
