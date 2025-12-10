@@ -46,6 +46,7 @@ fun PermissionScreen(
     var hasNotificationPermission by remember { mutableStateOf(PermissionHelper.hasNotificationPermission(context)) }
     var hasInstallPermission by remember { mutableStateOf(false) }
     var hasShizukuPermission by remember { mutableStateOf(false) }
+    var isShizukuAvailable by remember { mutableStateOf(false) }
     
     var selectedInstallMethod by remember { mutableStateOf<String?>(null) }
     var showMethodDialog by remember { mutableStateOf(false) }
@@ -64,6 +65,7 @@ fun PermissionScreen(
             hasInstallPermission = true
         }
         
+        isShizukuAvailable = shizukuInstaller.isShizukuAvailable()
         hasShizukuPermission = shizukuInstaller.hasShizukuPermission()
         
         val basicPermissionsGranted = storage && (notification || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU)
@@ -78,6 +80,19 @@ fun PermissionScreen(
             if (installOk) {
                 onPermissionsGranted()
             }
+        }
+    }
+    
+    val binderReceivedListener = remember {
+        Shizuku.OnBinderReceivedListener {
+            checkPermissions()
+        }
+    }
+    
+    val binderDeadListener = remember {
+        Shizuku.OnBinderDeadListener {
+            isShizukuAvailable = false
+            hasShizukuPermission = false
         }
     }
     
@@ -98,10 +113,16 @@ fun PermissionScreen(
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         
+        Shizuku.addBinderReceivedListenerSticky(binderReceivedListener)
+        Shizuku.addBinderDeadListener(binderDeadListener)
         Shizuku.addRequestPermissionResultListener(shizukuPermissionListener)
+        
+        checkPermissions()
         
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
+            Shizuku.removeBinderReceivedListener(binderReceivedListener)
+            Shizuku.removeBinderDeadListener(binderDeadListener)
             Shizuku.removeRequestPermissionResultListener(shizukuPermissionListener)
         }
     }
@@ -282,14 +303,66 @@ fun PermissionScreen(
                 Spacer(modifier = Modifier.height(12.dp))
             }
             
-            if (selectedInstallMethod == "shizuku" && !hasShizukuPermission) {
+            if (selectedInstallMethod == "shizuku") {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isShizukuAvailable)
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                        else
+                            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                if (isShizukuAvailable) Icons.Default.CheckCircle else Icons.Default.Error,
+                                contentDescription = null,
+                                tint = if (isShizukuAvailable)
+                                    MaterialTheme.colorScheme.primary
+                                else
+                                    MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = if (isShizukuAvailable) 
+                                        "Shizuku detectado" 
+                                    else 
+                                        "Shizuku não detectado",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                if (!isShizukuAvailable) {
+                                    Text(
+                                        text = "Abra o app Shizuku e ative o serviço",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            IconButton(onClick = { checkPermissions() }) {
+                                Icon(
+                                    Icons.Default.Refresh,
+                                    contentDescription = "Atualizar",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+            
+            if (selectedInstallMethod == "shizuku" && isShizukuAvailable && !hasShizukuPermission) {
                 PermissionCard(
                     icon = Icons.Default.Security,
                     title = "Permissão Shizuku",
-                    subtitle = if (shizukuInstaller.isShizukuAvailable()) 
-                        "Toque para solicitar permissão" 
-                    else 
-                        "Shizuku não está ativo",
+                    subtitle = "Toque para solicitar permissão",
                     isGranted = false,
                     onClick = {
                         if (shizukuInstaller.isShizukuAvailable()) {
@@ -307,7 +380,7 @@ fun PermissionScreen(
             (hasNotificationPermission || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) &&
             selectedInstallMethod != null &&
             ((selectedInstallMethod == "standard" && hasInstallPermission) || 
-             (selectedInstallMethod == "shizuku" && hasShizukuPermission))
+             (selectedInstallMethod == "shizuku" && hasShizukuPermission && isShizukuAvailable))
 
         if (canContinue) {
             Button(
@@ -349,7 +422,8 @@ fun PermissionScreen(
                 showMethodDialog = false
                 checkPermissions()
             },
-            currentMethod = selectedInstallMethod
+            currentMethod = selectedInstallMethod,
+            isShizukuAvailable = isShizukuAvailable
         )
     }
 }
@@ -432,7 +506,8 @@ fun PermissionCard(
 fun InstallMethodDialog(
     onDismiss: () -> Unit,
     onMethodSelected: (String) -> Unit,
-    currentMethod: String?
+    currentMethod: String?,
+    isShizukuAvailable: Boolean
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -502,37 +577,74 @@ fun InstallMethodDialog(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onMethodSelected("shizuku") },
+                        .clickable(enabled = isShizukuAvailable) { 
+                            if (isShizukuAvailable) onMethodSelected("shizuku") 
+                        },
                     colors = CardDefaults.cardColors(
                         containerColor = if (currentMethod == "shizuku")
                             MaterialTheme.colorScheme.primaryContainer
+                        else if (!isShizukuAvailable)
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                         else
                             MaterialTheme.colorScheme.surfaceVariant
                     ),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Row(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            .padding(16.dp)
                     ) {
-                        RadioButton(
-                            selected = currentMethod == "shizuku",
-                            onClick = { onMethodSelected("shizuku") }
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(
-                                text = "Shizuku (Automático)",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = currentMethod == "shizuku",
+                                onClick = { if (isShizukuAvailable) onMethodSelected("shizuku") },
+                                enabled = isShizukuAvailable
                             )
-                            Text(
-                                text = "Instalação automática após download",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "Shizuku",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isShizukuAvailable)
+                                            MaterialTheme.colorScheme.onSurface
+                                        else
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    if (!isShizukuAvailable) {
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Surface(
+                                            shape = RoundedCornerShape(4.dp),
+                                            color = MaterialTheme.colorScheme.errorContainer
+                                        ) {
+                                            Text(
+                                                text = "Indisponível",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.error,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                                Text(
+                                    text = "Instalação automática após download",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                if (!isShizukuAvailable) {
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "Instale e ative o Shizuku primeiro",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.error,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
                         }
                     }
                 }

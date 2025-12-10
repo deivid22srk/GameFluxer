@@ -11,11 +11,22 @@ import androidx.compose.ui.Modifier
 import com.gamestore.app.ui.navigation.AppNavigation
 import com.gamestore.app.ui.theme.GameStoreTheme
 import com.gamestore.app.util.PermissionHelper
+import rikka.shizuku.Shizuku
 
 class MainActivity : ComponentActivity() {
+    
+    private val shizukuBinderReceivedListener = Shizuku.OnBinderReceivedListener {
+    }
+    
+    private val shizukuBinderDeadListener = Shizuku.OnBinderDeadListener {
+    }
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        
+        Shizuku.addBinderReceivedListenerSticky(shizukuBinderReceivedListener)
+        Shizuku.addBinderDeadListener(shizukuBinderDeadListener)
         
         PermissionHelper.checkAndRequestPermissions(this)
         
@@ -29,5 +40,11 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+    
+    override fun onDestroy() {
+        super.onDestroy()
+        Shizuku.removeBinderReceivedListener(shizukuBinderReceivedListener)
+        Shizuku.removeBinderDeadListener(shizukuBinderDeadListener)
     }
 }

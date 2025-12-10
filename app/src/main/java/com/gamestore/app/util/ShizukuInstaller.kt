@@ -3,6 +3,7 @@ package com.gamestore.app.util
 import android.content.Context
 import android.content.pm.PackageInstaller
 import android.os.Build
+import android.util.Log
 import rikka.shizuku.Shizuku
 import rikka.shizuku.ShizukuBinderWrapper
 import rikka.shizuku.SystemServiceHelper
@@ -13,12 +14,16 @@ class ShizukuInstaller(private val context: Context) {
     
     companion object {
         const val SHIZUKU_PERMISSION_REQUEST_CODE = 1001
+        private const val TAG = "ShizukuInstaller"
     }
     
     fun isShizukuAvailable(): Boolean {
         return try {
-            Shizuku.pingBinder()
+            val available = Shizuku.pingBinder()
+            Log.d(TAG, "Shizuku available: $available")
+            available
         } catch (e: Exception) {
+            Log.e(TAG, "Error checking Shizuku availability", e)
             false
         }
     }
@@ -26,21 +31,36 @@ class ShizukuInstaller(private val context: Context) {
     fun hasShizukuPermission(): Boolean {
         return try {
             if (Shizuku.isPreV11()) {
+                Log.d(TAG, "Shizuku is pre-v11, returning false")
                 false
             } else {
-                Shizuku.checkSelfPermission() == android.content.pm.PackageManager.PERMISSION_GRANTED
+                val permission = Shizuku.checkSelfPermission()
+                val hasPermission = permission == android.content.pm.PackageManager.PERMISSION_GRANTED
+                Log.d(TAG, "Shizuku permission status: $permission, hasPermission: $hasPermission")
+                hasPermission
             }
         } catch (e: Exception) {
+            Log.e(TAG, "Error checking Shizuku permission", e)
             false
         }
     }
     
     fun requestShizukuPermission() {
         try {
-            if (!Shizuku.isPreV11()) {
-                Shizuku.requestPermission(SHIZUKU_PERMISSION_REQUEST_CODE)
+            Log.d(TAG, "Requesting Shizuku permission")
+            if (Shizuku.isPreV11()) {
+                Log.d(TAG, "Cannot request permission on pre-v11")
+                return
             }
+            
+            if (Shizuku.shouldShowRequestPermissionRationale()) {
+                Log.d(TAG, "Should show rationale")
+            }
+            
+            Shizuku.requestPermission(SHIZUKU_PERMISSION_REQUEST_CODE)
+            Log.d(TAG, "Permission requested")
         } catch (e: Exception) {
+            Log.e(TAG, "Error requesting Shizuku permission", e)
             e.printStackTrace()
         }
     }

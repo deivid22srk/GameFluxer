@@ -36,6 +36,7 @@ import com.gamestore.app.ui.components.FolderPickerDialog
 import com.gamestore.app.ui.viewmodel.DownloadViewModel
 import com.gamestore.app.ui.viewmodel.MainViewModel
 import kotlinx.coroutines.launch
+import rikka.shizuku.Shizuku
 
 @Composable
 fun SettingsScreen(
@@ -55,6 +56,32 @@ fun SettingsScreen(
     val currentPlatformData by viewModel.currentPlatformData.collectAsState()
     val internetArchiveCookies by viewModel.internetArchiveCookies.collectAsState()
     val installMethod by viewModel.installMethod.collectAsState()
+    
+    val shizukuInstaller = remember { com.gamestore.app.util.ShizukuInstaller(context) }
+    var isShizukuAvailable by remember { mutableStateOf(false) }
+    
+    val binderReceivedListener = remember {
+        Shizuku.OnBinderReceivedListener {
+            isShizukuAvailable = shizukuInstaller.isShizukuAvailable()
+        }
+    }
+    
+    val binderDeadListener = remember {
+        Shizuku.OnBinderDeadListener {
+            isShizukuAvailable = false
+        }
+    }
+    
+    DisposableEffect(Unit) {
+        Shizuku.addBinderReceivedListenerSticky(binderReceivedListener)
+        Shizuku.addBinderDeadListener(binderDeadListener)
+        isShizukuAvailable = shizukuInstaller.isShizukuAvailable()
+        
+        onDispose {
+            Shizuku.removeBinderReceivedListener(binderReceivedListener)
+            Shizuku.removeBinderDeadListener(binderDeadListener)
+        }
+    }
     
     var showPlatformDialog by remember { mutableStateOf(false) }
     var showDatabaseDialog by remember { mutableStateOf(false) }
@@ -235,7 +262,10 @@ fun SettingsScreen(
                     icon = Icons.Default.Android,
                     title = "Método de Instalação",
                     subtitle = when (installMethod) {
-                        "shizuku" -> "Shizuku (Instalação automática)"
+                        "shizuku" -> if (isShizukuAvailable) 
+                            "Shizuku (Instalação automática)" 
+                        else 
+                            "Shizuku (Ative o Shizuku para usar)"
                         else -> "Padrão (Instalação manual)"
                     },
                     gradient = listOf(
@@ -244,6 +274,35 @@ fun SettingsScreen(
                     ),
                     iconTint = MaterialTheme.colorScheme.tertiary
                 ) {
+                    if (installMethod == "shizuku" && !isShizukuAvailable) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.Warning,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Shizuku não está ativo",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
                     Button(
                         onClick = { showInstallMethodDialog = true },
                         modifier = Modifier.fillMaxWidth(),
@@ -881,7 +940,7 @@ fun SettingsScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        Icons.Default.InstallMobile,
+                        Icons.Default.Android,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.tertiary,
                         modifier = Modifier.size(28.dp)
@@ -957,45 +1016,84 @@ fun SettingsScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
-                            .clickable {
-                                scope.launch {
-                                    viewModel.setInstallMethod("shizuku")
-                                    showInstallMethodDialog = false
-                                }
-                            },
-                        color = if (installMethod == "shizuku")
-                            MaterialTheme.colorScheme.primaryContainer
-                        else
-                            MaterialTheme.colorScheme.surfaceVariant,
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(
-                                selected = installMethod == "shizuku",
-                                onClick = {
+                            .clickable(enabled = isShizukuAvailable) {
+                                if (isShizukuAvailable) {
                                     scope.launch {
                                         viewModel.setInstallMethod("shizuku")
                                         showInstallMethodDialog = false
                                     }
                                 }
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column {
-                                Text(
-                                    text = "Shizuku",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold
+                            },
+                        color = if (installMethod == "shizuku")
+                            MaterialTheme.colorScheme.primaryContainer
+                        else if (!isShizukuAvailable)
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        else
+                            MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = installMethod == "shizuku",
+                                    onClick = {
+                                        if (isShizukuAvailable) {
+                                            scope.launch {
+                                                viewModel.setInstallMethod("shizuku")
+                                                showInstallMethodDialog = false
+                                            }
+                                        }
+                                    },
+                                    enabled = isShizukuAvailable
                                 )
-                                Text(
-                                    text = "Instalação automática após download",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = "Shizuku",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isShizukuAvailable)
+                                                MaterialTheme.colorScheme.onSurface
+                                            else
+                                                MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        if (!isShizukuAvailable) {
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Surface(
+                                                shape = RoundedCornerShape(4.dp),
+                                                color = MaterialTheme.colorScheme.errorContainer
+                                            ) {
+                                                Text(
+                                                    text = "Inativo",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.error,
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                    Text(
+                                        text = "Instalação automática após download",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    if (!isShizukuAvailable) {
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = "Abra o app Shizuku e ative o serviço",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.error,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
