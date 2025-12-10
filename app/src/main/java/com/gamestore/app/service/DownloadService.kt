@@ -17,6 +17,7 @@ import com.gamestore.app.data.model.DownloadStatus
 import com.gamestore.app.data.repository.DownloadRepository
 import com.gamestore.app.data.preferences.PreferencesManager
 import com.gamestore.app.util.DownloadDebugHelper
+import com.gamestore.app.util.ShizukuInstaller
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
 import kotlin.coroutines.coroutineContext
@@ -358,6 +359,12 @@ class DownloadService : Service() {
                     totalBytes,
                     completed = true
                 )
+                
+                if (download.filePath.endsWith(".apk", ignoreCase = true)) {
+                    serviceScope.launch {
+                        tryAutoInstall(download, download.filePath)
+                    }
+                }
             }
 
         } catch (e: Exception) {
@@ -568,40 +575,132 @@ class DownloadService : Service() {
 
     private suspend fun getInternetArchiveCookies(): String? {
         return try {
-            val email = preferencesManager.internetArchiveEmail.first()
-            val password = preferencesManager.internetArchivePassword.first()
+            val cookies = preferencesManager.internetArchiveCookies.first()
             
-            if (email.isEmpty() || password.isEmpty()) {
+            if (cookies.isEmpty()) {
                 return null
             }
             
-            val loginUrl = URL("https://archive.org/account/login")
-            val connection = loginUrl.openConnection() as HttpURLConnection
-            connection.requestMethod = "POST"
-            connection.doOutput = true
-            connection.instanceFollowRedirects = false
-            connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
-            connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36")
-            
-            val postData = "username=${java.net.URLEncoder.encode(email, "UTF-8")}&password=${java.net.URLEncoder.encode(password, "UTF-8")}&submit_by_js=true"
-            connection.outputStream.write(postData.toByteArray())
-            
-            val responseCode = connection.responseCode
-            if (responseCode in 200..399) {
-                val cookies = connection.headerFields["Set-Cookie"]
-                if (cookies != null && cookies.isNotEmpty()) {
-                    return cookies.joinToString("; ") { cookie ->
-                        cookie.split(";")[0]
-                    }
-                }
-            }
-            
-            connection.disconnect()
-            null
+            cookies
         } catch (e: Exception) {
             e.printStackTrace()
             null
         }
+    }
+    
+    private suspend fun tryAutoInstall(download: Download, filePath: String) {
+        try {
+            val installMethod = preferencesManager.installMethod.first()
+            
+            if (installMethod != "shizuku") {
+                return
+            }
+            
+            val shizukuInstaller = ShizukuInstaller(applicationContext)
+            
+            if (!shizukuInstaller.isShizukuAvailable() || !shizukuInstaller.hasShizukuPermission()) {
+                showInstallNotification(
+                    download.id,
+                    download.gameName,
+                    "Shizuku não disponível",
+                    false
+                )
+                return
+            }
+            
+            val apkFile = File(filePath)
+            if (!apkFile.exists()) {
+                showInstallNotification(
+                    download.id,
+                    download.gameName,
+                    "Arquivo APK não encontrado",
+                    false
+                )
+                return
+            }
+            
+            showInstallNotification(
+                download.id,
+                download.gameName,
+                "Iniciando instalação...",
+                null
+            )
+            
+            shizukuInstaller.installApk(
+                apkFile,
+                onProgress = { progress ->
+                    showInstallNotification(
+                        download.id,
+                        download.gameName,
+                        progress,
+                        null
+                    )
+                },
+                onComplete = { success, error ->
+                    if (success) {
+                        showInstallNotification(
+                            download.id,
+                            download.gameName,
+                            "Instalação concluída com sucesso",
+                            true
+                        )
+                    } else {
+                        showInstallNotification(
+                            download.id,
+                            download.gameName,
+                            "Erro: ${error ?: "Desconhecido"}",
+                            false
+                        )
+                    }
+                }
+            )
+            
+        } catch (e: Exception) {
+            e.printStackTrace()
+            showInstallNotification(
+                download.id,
+                download.gameName,
+                "Erro ao instalar: ${e.message}",
+                false
+            )
+        }
+    }
+    
+    private fun showInstallNotification(
+        downloadId: String,
+        gameName: String,
+        message: String,
+        success: Boolean?
+    ) {
+        val notificationId = "install_$downloadId".hashCode()
+        
+        val intent = Intent(this, MainActivity::class.java)
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            notificationId,
+            intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        
+        val icon = when (success) {
+            true -> android.R.drawable.stat_sys_download_done
+            false -> android.R.drawable.stat_notify_error
+            null -> android.R.drawable.stat_sys_download
+        }
+        
+        val builder = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
+            .setSmallIcon(icon)
+            .setContentTitle("$gameName - Instalação")
+            .setContentText(message)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(success != null)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+        
+        if (success == null) {
+            builder.setProgress(0, 0, true)
+        }
+        
+        notificationManager.notify(notificationId, builder.build())
     }
 
     override fun onDestroy() {

@@ -51,11 +51,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val customDownloadSources: StateFlow<Set<String>> = preferencesManager.customDownloadSources
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
     
-    val internetArchiveEmail: StateFlow<String> = preferencesManager.internetArchiveEmail
+    val internetArchiveCookies: StateFlow<String> = preferencesManager.internetArchiveCookies
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
     
-    val internetArchivePassword: StateFlow<String> = preferencesManager.internetArchivePassword
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
+    val installMethod: StateFlow<String> = preferencesManager.installMethod
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "standard")
     
     private val _currentPlatformData = MutableStateFlow<Platform?>(null)
     val currentPlatformData: StateFlow<Platform?> = _currentPlatformData
@@ -221,15 +221,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
-    fun setInternetArchiveCredentials(email: String, password: String) {
+    fun setInternetArchiveCookies(cookies: String) {
         viewModelScope.launch {
-            preferencesManager.setInternetArchiveCredentials(email, password)
+            preferencesManager.setInternetArchiveCookies(cookies)
         }
     }
     
-    fun clearInternetArchiveCredentials() {
+    fun clearInternetArchiveCookies() {
         viewModelScope.launch {
-            preferencesManager.clearInternetArchiveCredentials()
+            preferencesManager.clearInternetArchiveCookies()
         }
     }
     
@@ -251,5 +251,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun getDatabasesForPlatform(platformName: String): List<com.gamestore.app.data.model.DatabaseEntry> {
         val config = _databaseConfig.value ?: return emptyList()
         return config.platforms.find { it.name == platformName }?.databases ?: emptyList()
+    }
+    
+    fun setInstallMethod(method: String) {
+        viewModelScope.launch {
+            preferencesManager.setInstallMethod(method)
+        }
     }
 }

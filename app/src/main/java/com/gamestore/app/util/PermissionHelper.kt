@@ -16,6 +16,7 @@ object PermissionHelper {
     const val NOTIFICATION_PERMISSION_REQUEST_CODE = 1001
     const val STORAGE_PERMISSION_REQUEST_CODE = 1002
     const val MANAGE_EXTERNAL_STORAGE_REQUEST_CODE = 1003
+    const val INSTALL_PACKAGES_REQUEST_CODE = 1004
 
     fun hasNotificationPermission(context: Context): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -97,6 +98,22 @@ object PermissionHelper {
                 return false
             }
             else -> return true
+        }
+    }
+    
+    fun hasInstallPermission(context: Context): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            context.packageManager.canRequestPackageInstalls()
+        } else {
+            true
+        }
+    }
+    
+    fun requestInstallPermission(activity: Activity) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES)
+            intent.data = Uri.parse("package:${activity.packageName}")
+            activity.startActivityForResult(intent, INSTALL_PACKAGES_REQUEST_CODE)
         }
     }
 }

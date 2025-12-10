@@ -33,16 +33,16 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.gamestore.app.ui.components.FolderPickerDialog
-import com.gamestore.app.ui.components.ExtendedDownloadSourcesDialog
-import com.gamestore.app.ui.components.ExtendedDownloadSourcesSection
 import com.gamestore.app.ui.viewmodel.DownloadViewModel
 import com.gamestore.app.ui.viewmodel.MainViewModel
+import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsScreen(
     viewModel: MainViewModel = viewModel(),
     downloadViewModel: DownloadViewModel = viewModel(),
-    onNavigateToDatabaseManager: () -> Unit = {}
+    onNavigateToDatabaseManager: () -> Unit = {},
+    onNavigateToInternetArchiveLogin: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val currentPlatform by viewModel.currentPlatform.collectAsState()
@@ -53,8 +53,8 @@ fun SettingsScreen(
     val githubRepoUrl by viewModel.githubRepoUrl.collectAsState()
     val customDownloadSources by viewModel.customDownloadSources.collectAsState()
     val currentPlatformData by viewModel.currentPlatformData.collectAsState()
-    val internetArchiveEmail by viewModel.internetArchiveEmail.collectAsState()
-    val internetArchivePassword by viewModel.internetArchivePassword.collectAsState()
+    val internetArchiveCookies by viewModel.internetArchiveCookies.collectAsState()
+    val installMethod by viewModel.installMethod.collectAsState()
     
     var showPlatformDialog by remember { mutableStateOf(false) }
     var showDatabaseDialog by remember { mutableStateOf(false) }
@@ -62,8 +62,7 @@ fun SettingsScreen(
     var showFolderPicker by remember { mutableStateOf(false) }
     var showStoragePermissionDialog by remember { mutableStateOf(false) }
     var showGitHubDialog by remember { mutableStateOf(false) }
-    var showSourcesDialog by remember { mutableStateOf(false) }
-    var showInternetArchiveDialog by remember { mutableStateOf(false) }
+    var showInstallMethodDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(importStatus) {
@@ -233,6 +232,35 @@ fun SettingsScreen(
 
             item {
                 SettingCard(
+                    icon = Icons.Default.Android,
+                    title = "Método de Instalação",
+                    subtitle = when (installMethod) {
+                        "shizuku" -> "Shizuku (Instalação automática)"
+                        else -> "Padrão (Instalação manual)"
+                    },
+                    gradient = listOf(
+                        MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f),
+                        MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f)
+                    ),
+                    iconTint = MaterialTheme.colorScheme.tertiary
+                ) {
+                    Button(
+                        onClick = { showInstallMethodDialog = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.tertiary
+                        )
+                    ) {
+                        Icon(Icons.Default.SwapHoriz, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Alterar Método", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            item {
+                SettingCard(
                     icon = Icons.Default.CloudSync,
                     title = "Repositório do GitHub",
                     subtitle = githubRepoUrl.take(50) + if (githubRepoUrl.length > 50) "..." else "",
@@ -340,8 +368,8 @@ fun SettingsScreen(
                 SettingCard(
                     icon = Icons.Default.AccountCircle,
                     title = "Internet Archive",
-                    subtitle = if (internetArchiveEmail.isNotEmpty()) 
-                        "Conectado como $internetArchiveEmail" 
+                    subtitle = if (internetArchiveCookies.isNotEmpty()) 
+                        "Conectado - Login ativo" 
                     else 
                         "Faça login para baixar arquivos restritos",
                     gradient = listOf(
@@ -350,22 +378,22 @@ fun SettingsScreen(
                     ),
                     iconTint = MaterialTheme.colorScheme.secondary
                 ) {
-                    if (internetArchiveEmail.isNotEmpty()) {
+                    if (internetArchiveCookies.isNotEmpty()) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             OutlinedButton(
-                                onClick = { showInternetArchiveDialog = true },
+                                onClick = onNavigateToInternetArchiveLogin,
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
-                                Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("Editar", fontWeight = FontWeight.Bold)
+                                Text("Refazer Login", fontWeight = FontWeight.Bold)
                             }
                             Button(
-                                onClick = { viewModel.clearInternetArchiveCredentials() },
+                                onClick = { viewModel.clearInternetArchiveCookies() },
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(12.dp),
                                 colors = ButtonDefaults.buttonColors(
@@ -379,7 +407,7 @@ fun SettingsScreen(
                         }
                     } else {
                         Button(
-                            onClick = { showInternetArchiveDialog = true },
+                            onClick = onNavigateToInternetArchiveLogin,
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.buttonColors(
@@ -392,15 +420,6 @@ fun SettingsScreen(
                         }
                     }
                 }
-            }
-
-            item {
-                Spacer(modifier = Modifier.height(8.dp))
-                ExtendedDownloadSourcesSection(
-                    platform = currentPlatformData,
-                    customSources = customDownloadSources,
-                    onManageSources = { showSourcesDialog = true }
-                )
             }
 
             item {
@@ -733,124 +752,6 @@ fun SettingsScreen(
         )
     }
     
-    if (showSourcesDialog) {
-        ExtendedDownloadSourcesDialog(
-            platform = currentPlatformData,
-            customSources = customDownloadSources,
-            onDismiss = { showSourcesDialog = false },
-            onAddSource = { url -> viewModel.addCustomDownloadSource(url) },
-            onRemoveSource = { url -> viewModel.removeCustomDownloadSource(url) }
-        )
-    }
-    
-    if (showInternetArchiveDialog) {
-        var email by remember { mutableStateOf(internetArchiveEmail) }
-        var password by remember { mutableStateOf(internetArchivePassword) }
-        
-        AlertDialog(
-            onDismissRequest = { showInternetArchiveDialog = false },
-            icon = {
-                Box(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .background(
-                            MaterialTheme.colorScheme.secondaryContainer,
-                            shape = CircleShape
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Default.AccountCircle,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.secondary,
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
-            },
-            title = { 
-                Text(
-                    "Login no Internet Archive",
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleLarge
-                ) 
-            },
-            text = {
-                Column {
-                    Text(
-                        text = "Faça login para baixar arquivos que requerem autenticação:",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    OutlinedTextField(
-                        value = email,
-                        onValueChange = { email = it },
-                        label = { Text("Email") },
-                        placeholder = { Text("seu-email@exemplo.com") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        leadingIcon = {
-                            Icon(
-                                Icons.Default.Email,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.secondary
-                            )
-                        },
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.colorScheme.secondary,
-                            focusedLabelColor = MaterialTheme.colorScheme.secondary
-                        )
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value = password,
-                        onValueChange = { password = it },
-                        label = { Text("Senha") },
-                        placeholder = { Text("Sua senha") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        leadingIcon = {
-                            Icon(
-                                Icons.Default.Lock,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.secondary
-                            )
-                        },
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.colorScheme.secondary,
-                            focusedLabelColor = MaterialTheme.colorScheme.secondary
-                        )
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.setInternetArchiveCredentials(email, password)
-                        showInternetArchiveDialog = false
-                    },
-                    enabled = email.isNotEmpty() && password.isNotEmpty(),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(Icons.Default.Check, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Salvar", fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                OutlinedButton(
-                    onClick = { showInternetArchiveDialog = false },
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("Cancelar")
-                }
-            },
-            shape = RoundedCornerShape(28.dp)
-        )
-    }
-    
     if (showDatabaseDialog && selectedPlatformForDatabase != null) {
         val databases = viewModel.getDatabasesForPlatform(selectedPlatformForDatabase!!)
         
@@ -958,6 +859,154 @@ fun SettingsScreen(
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Text("Cancelar", fontWeight = FontWeight.Bold)
+                }
+            },
+            shape = RoundedCornerShape(28.dp)
+        )
+    }
+    
+    if (showInstallMethodDialog) {
+        val scope = rememberCoroutineScope()
+        
+        AlertDialog(
+            onDismissRequest = { showInstallMethodDialog = false },
+            icon = {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .background(
+                            MaterialTheme.colorScheme.tertiaryContainer,
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.InstallMobile,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.tertiary,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            },
+            title = { 
+                Text(
+                    "Método de Instalação",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleLarge
+                ) 
+            },
+            text = {
+                Column {
+                    Text(
+                        text = "Escolha como os APKs baixados serão instalados:",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable {
+                                scope.launch {
+                                    viewModel.setInstallMethod("standard")
+                                    showInstallMethodDialog = false
+                                }
+                            },
+                        color = if (installMethod == "standard")
+                            MaterialTheme.colorScheme.primaryContainer
+                        else
+                            MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = installMethod == "standard",
+                                onClick = {
+                                    scope.launch {
+                                        viewModel.setInstallMethod("standard")
+                                        showInstallMethodDialog = false
+                                    }
+                                }
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = "Padrão",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "Instalação manual (requer confirmação)",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable {
+                                scope.launch {
+                                    viewModel.setInstallMethod("shizuku")
+                                    showInstallMethodDialog = false
+                                }
+                            },
+                        color = if (installMethod == "shizuku")
+                            MaterialTheme.colorScheme.primaryContainer
+                        else
+                            MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = installMethod == "shizuku",
+                                onClick = {
+                                    scope.launch {
+                                        viewModel.setInstallMethod("shizuku")
+                                        showInstallMethodDialog = false
+                                    }
+                                }
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = "Shizuku",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "Instalação automática após download",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { showInstallMethodDialog = false },
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Fechar", fontWeight = FontWeight.Bold)
                 }
             },
             shape = RoundedCornerShape(28.dp)

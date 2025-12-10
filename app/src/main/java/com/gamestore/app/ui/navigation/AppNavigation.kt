@@ -26,6 +26,7 @@ import com.gamestore.app.ui.screens.DatabaseManagerScreen
 import com.gamestore.app.ui.screens.DownloadsScreen
 import com.gamestore.app.ui.screens.GameDetailScreen
 import com.gamestore.app.ui.screens.HomeScreen
+import com.gamestore.app.ui.screens.InternetArchiveLoginScreen
 import com.gamestore.app.ui.screens.PermissionScreen
 import com.gamestore.app.ui.screens.PlatformDatabasesScreen
 import com.gamestore.app.ui.screens.PlatformGamesScreen
@@ -50,6 +51,7 @@ sealed class Screen(val route: String) {
     object GameDetail : Screen("game_detail/{gameId}") {
         fun createRoute(gameId: String) = "game_detail/$gameId"
     }
+    object InternetArchiveLogin : Screen("internet_archive_login")
 }
 
 data class NavigationItem(
@@ -203,6 +205,9 @@ fun AppNavigation() {
                 SettingsScreen(
                     onNavigateToDatabaseManager = {
                         navController.navigate(Screen.DatabaseManager.route)
+                    },
+                    onNavigateToInternetArchiveLogin = {
+                        navController.navigate(Screen.InternetArchiveLogin.route)
                     }
                 )
             }
@@ -260,6 +265,12 @@ fun AppNavigation() {
                 val gameId = backStackEntry.arguments?.getString("gameId") ?: return@composable
                 GameDetailScreen(
                     gameId = gameId,
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
+            
+            composable(Screen.InternetArchiveLogin.route) {
+                InternetArchiveLoginScreen(
                     onBackClick = { navController.popBackStack() }
                 )
             }
